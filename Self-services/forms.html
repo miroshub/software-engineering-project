@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Form submission page</title>
+    <link rel="stylesheet" href="form.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <p>RM</p>
+      </div>
+      <div class="brand-name">
+        <p id="text1">Recognise me</p>
+        <p id="text2">Self-service portal</p>
+      </div>
+    </header>
+
+    <div class="page-wrapper">
+      <div class="main-layout">
+        <section class="introduction">
+          <h2>Recognise me</h2>
+          <h1>Student Self Registration Portal</h1>
+          <p class="introduction-text">
+            Students can complete their enrollment details, choose their courses,
+            and register their face before using attendance system
+          </p>
+
+          <div class="steps">
+            <div class="step">
+              <p>Step 1</p>
+              <p>Enter student information and academic details</p>
+            </div>
+
+            <div class="step">
+              <p>Step 2</p>
+              <p>Select enrolled courses this semester</p>
+            </div>
+
+            <div class="step">
+              <p>Step 3</p>
+              <p>Register face data for future attendance verification</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="form">
+          <div class="container">
+            <h2>Create Student Profile</h2>
+            <p class="form-subtext">
+              Fill in your details, choose your courses, and complete face registration.
+            </p>
+
+            <form>
+              <div class="form-row">
+                <div class="input-box">
+                  <label for="fullName">Full Name</label>
+                  <input type="text" id="fullName" placeholder="Enter full name" />
+                </div>
+
+                <div class="input-box">
+                  <label for="studentId">Student ID</label>
+                  <input type="text" id="studentId" placeholder="Enter student ID" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="input-box">
+                  <label for="email">University Email</label>
+                  <input type="email" id="email" placeholder="Enter university email" />
+                </div>
+
+                <div class="input-box">
+                  <label for="phone">Phone Number</label>
+                  <input type="text" id="phone" placeholder="Enter phone number" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="input-box">
+                  <label for="department">Department</label>
+                  <select id="department">
+                    <option value="">Select department</option>
+                    <option>Computer Science</option>
+                    <option>Information Systems</option>
+                    <option>Software Engineering</option>
+                    <option>Business Informatics</option>
+                  </select>
+                </div>
+
+                <div class="input-box">
+                  <label for="year">Academic Year</label>
+                  <select id="year">
+                    <option value="">Select year</option>
+                    <option>Year 1</option>
+                    <option>Year 2</option>
+                    <option>Year 3</option>
+                    <option>Year 4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="course-section">
+                <h3>Course Enrollment</h3>
+                <div class="course-list">
+                  <label class="course-card">
+                    <input type="checkbox" /> Advanced Algorithms
+                  </label>
+
+                  <label class="course-card">
+                    <input type="checkbox" /> Software Engineering
+                  </label>
+
+                  <label class="course-card">
+                    <input type="checkbox" /> Database Systems
+                  </label>
+
+                  <label class="course-card">
+                    <input type="checkbox" /> Computer Networks
+                  </label>
+                </div>
+              </div>
+
+              <div class="face-section">
+                <h3>Face Registration</h3>
+                <p>Capture your face data for future attendance verification.</p>
+                <button type="button" class="face-btn">Register Face</button>
+                <p class="face-status">Face not registered yet</p>
+              </div>
+
+              <div class="button-row">
+                <button type="reset" class="clear-btn">Clear</button>
+                <button type="submit" class="submit-btn">Submit Registration</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="form.js"></script>
+  </body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Create Session – Recognise Me</title>
+  <link rel="stylesheet" href="../Css/styles.css" />
+</head>
+<body>
+
+<header>
+    <div class="logo"><p>RM</p></div>
+    <div class="brand-name">
+      <p>Recognise me</p>
+      <p>Instructor Portal</p>
+    </div>
+    <nav class="top-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="enrollments.html">Courses</a>
+      <a href="session.html">Session</a>
+      <a href="attendance.html">Attendance</a>
+      <a href="report.html">Reports</a>
+    </nav>
+</header>
+
+  <div class="page-wrapper">
+    <div class="main-layout">
+
+      <div class="left-panel">
+        <p class="brand-label">Recognise me</p>
+        <h1>Create Attendance Session</h1>
+        <p class="desc">Set up a new session for a course. Students will be marked present through face recognition.</p>
+
+        <div class="step-box">
+          <p>Step 1</p>
+          <p>Select your course and set the date</p>
+        </div>
+        <div class="step-box">
+          <p>Step 2</p>
+          <p>Set the start and end time</p>
+        </div>
+        <div class="step-box">
+          <p>Step 3</p>
+          <p>Submit and the session will be created</p>
+        </div>
+        </div>
+
+      <div class="right-content">
+        <h2>Session Details</h2>
+        <p class="subtext">Fill in the details below to create a new attendance session.</p>
+
+        <div class="form-row">
+          <div class="input-box">
+            <label for="course">Course</label>
+            <select id="course">
+              <option value="">Select course</option>
+              <option>Advanced Algorithms</option>
+              <option>Database Systems</option>
+              <option>Software Engineering</option>
+              <option>Computer Networks</option>
+            </select>
+          </div>
+          <div class="input-box">
+            <label for="sessionDate">Date</label>
+            <input type="date" id="sessionDate" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="input-box">
+            <label for="startTime">Start Time</label>
+            <input type="time" id="startTime" />
+          </div>
+          <div class="input-box">
+            <label for="endTime">End Time</label>
+            <input type="time" id="endTime" />
+          </div>
+        </div>
+
+        <div class="form-row full">
+          <div class="input-box">
+            <label for="location">Location / Room</label>
+            <input type="text" id="location"/>
+          </div>
+        </div>
+
+        <div class="form-row full">
+          <div class="input-box">
+            <label for="notes">Notes (optional)</label>
+            <textarea id="notes" rows="3" ></textarea>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+
+        <div id="successMsg" class="success-msg">✔ Session created successfully!</div>
+
+        <p class="section-title">Upcoming Sessions</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Location</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Adv. Algorithms</td>
+              <td>Mar 18</td>
+              <td>10:00 AM</td>
+              <td>Room B201</td>
+              <td><span class="badge badge-yellow">Upcoming</span></td>
+            </tr>
+            <tr>
+              <td>Database Systems</td>
+              <td>Mar 19</td>
+              <td>1:00 PM</td>
+              <td>Lab 3</td>
+              <td><span class="badge badge-yellow">Upcoming</span></td>
+            </tr>
+            <tr>
+              <td>Soft. Engineering</td>
+              <td>Mar 17</td>
+              <td>9:00 AM</td>
+              <td>Room A104</td>
+              <td><span class="badge badge-green">Done</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../Javascript/scripts.js"></script>
+</body>
+</html>

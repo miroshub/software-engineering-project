@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports – Recognise Me</title>
+  <link rel="stylesheet" href="../Css/styles.css" />
+</head>
+<body>
+
+<header>
+    <div class="logo"><p>RM</p></div>
+    <div class="brand-name">
+      <p>Recognise me</p>
+      <p>Instructor Portal</p>
+    </div>
+    <nav class="top-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="enrollments.html">Courses</a>
+      <a href="session.html">Session</a>
+      <a href="attendance.html">Attendance</a>
+      <a href="report.html">Reports</a>
+    </nav>
+</header>
+
+  <div class="page-wrapper">
+    <div class="main-layout">
+
+      <div class="left-panel">
+        <p class="brand-label">Recognise me</p>
+        <h1>Generate Report</h1>
+        <p class="desc">Select a course and date range to generate a full attendance summary for your students.</p>
+
+        <div class="step-box">
+          <p>Step 1</p>
+          <p>Select course and optional student ID</p>
+        </div>
+        <div class="step-box">
+          <p>Step 2</p>
+          <p>Set the from and to date range</p>
+        </div>
+        <div class="step-box">
+          <p>Step 3</p>
+          <p>Click Generate to view the report</p>
+        </div>
+        </div>
+
+      <div class="right-content">
+        <h2>Report Filters</h2>
+        <p class="subtext">Choose a course and date range then click Generate.</p>
+
+        <div class="form-row">
+          <div class="input-box">
+            <label for="repCourse">Course</label>
+            <select id="repCourse">
+              <option value="">All Courses</option>
+              <option>Advanced Algorithms</option>
+              <option>Database Systems</option>
+              <option>Software Engineering</option>
+              <option>Computer Networks</option>
+            </select>
+          </div>
+          <div class="input-box">
+            <label for="repStudent">Student ID (optional)</label>
+            <input type="text" id="repStudent" placeholder="e.g. 20210001" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="input-box">
+            <label for="repFrom">From Date</label>
+            <input type="date" id="repFrom" />
+          </div>
+          <div class="input-box">
+            <label for="repTo">To Date</label>
+            <input type="date" id="repTo" />
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+
+        <div id="reportOutput" style="display:none;">
+
+          <p class="section-title">Report Summary</p>
+          <div class="stats-row">
+            <div class="stat-box">
+              <p class="s-label">Total Sessions</p>
+              <p class="s-value">12</p>
+            </div>
+            <div class="stat-box">
+              <p class="s-label">Avg Attendance</p>
+              <p class="s-value">85%</p>
+            </div>
+            <div class="stat-box">
+              <p class="s-label">Students Below 75%</p>
+              <p class="s-value" style="color:#c0392b;">3</p>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <p class="section-title" style="margin:0;">Attendance Summary</p>
+            <button class="btn btn-outline" onclick="window.print()">Print / Export</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Full Name</th>
+                <th>Course</th>
+                <th>Attended</th>
+                <th>Total</th>
+                <th>Rate</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>20210001</td>
+                <td>Ahmed Hassan</td>
+                <td>Adv. Algorithms</td>
+                <td>11</td><td>12</td>
+                <td>91.7%</td>
+                <td><span class="badge badge-green">Pass</span></td>
+              </tr>
+              <tr>
+                <td>20210002</td>
+                <td>Sara Mohamed</td>
+                <td>Database Systems</td>
+                <td>10</td><td>12</td>
+                <td>83.3%</td>
+                <td><span class="badge badge-green">Pass</span></td>
+              </tr>
+              <tr>
+                <td>20210003</td>
+                <td>Omar Youssef</td>
+                <td>Soft. Engineering</td>
+                <td>8</td><td>12</td>
+                <td>66.7%</td>
+                <td><span class="badge badge-red">At Risk</span></td>
+              </tr>
+              <tr>
+                <td>20210004</td>
+                <td>Nour Ali</td>
+                <td>Computer Networks</td>
+                <td>12</td><td>12</td>
+                <td>100%</td>
+                <td><span class="badge badge-green">Pass</span></td>
+              </tr>
+              <tr>
+                <td>20210005</td>
+                <td>Youssef Kamal</td>
+                <td>Adv. Algorithms</td>
+                <td>7</td><td>12</td>
+                <td>58.3%</td>
+                <td><span class="badge badge-red">At Risk</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../Javascript/scripts.js"></script>
+</body>
+</html>

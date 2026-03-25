@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Attendance - Recognise Me</title>
+  <link rel="stylesheet" href="../Css/Instructor.css" />
+</head>
+<body>
+
+ <header>
+    <div class="logo"><p>RM</p></div>
+    <div class="brand-name">
+      <p>Recognise me</p>
+      <p>Instructor Portal</p>
+    </div>
+    <nav class="top-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="enrollments.html">Courses</a>
+      <a href="session.html">Session</a>
+      <a href="attendance.html">Attendance</a>
+      <a href="report.html">Reports</a>
+    </nav>
+</header>
+
+  <div class="page-wrapper">
+    <div class="main-layout">
+
+      <div class="left-panel">
+        <p class="brand-label">Recognise me</p>
+        <h1>View Attendance</h1>
+        <p class="desc">Review attendance records for each session. Filter by course or date to find specific records quickly.</p>
+
+        <div class="step-box">
+          <p>Filter by Course</p>
+          <p>Select a course from the dropdown</p>
+        </div>
+        <div class="step-box">
+          <p>Filter by Date</p>
+          <p>Pick a date to view that session's records</p>
+        </div>
+        <div class="step-box">
+          <p>Search</p>
+          <p>Find a specific student by name</p>
+        </div>
+        </div>
+
+      <div class="right-content">
+        <h2>Overview</h2>
+        <p class="subtext">A summary of your classes this semester.</p>
+
+
+      <div class="right-content">
+        <h2>Attendance Records</h2>
+        <p class="subtext">Filter by course or date to view session attendance.</p>
+
+        <div class="filter-row">
+          <select id="courseFilter">
+            <option value="">All Courses</option>
+            <option>Advanced Algorithms</option>
+            <option>Database Systems</option>
+            <option>Software Engineering</option>
+            <option>Computer Networks</option>
+          </select>
+          <input type="date" id="dateFilter" />
+          <input type="text" id="searchInput" placeholder="Search student..." oninput="filterTable()" />
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <p class="s-label">Present</p>
+            <p class="s-value" style="color:#1a8a5a;">28</p>
+          </div>
+          <div class="stat-box">
+            <p class="s-label">Absent</p>
+            <p class="s-value" style="color:#c0392b;">4</p>
+          </div>
+          <div class="stat-box">
+            <p class="s-label">Attendance Rate</p>
+            <p class="s-value">87.5%</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Student ID</th>
+              <th>Full Name</th>
+              <th>Course</th>
+              <th>Date</th>
+              <th>Time In</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="studentTable">
+            <tr>
+              <td>20210001</td>
+              <td>Ahmed Hassan</td>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17, 2026</td>
+              <td>10:03 AM</td>
+              <td><span class="badge badge-green">Present</span></td>
+            </tr>
+            <tr>
+              <td>20210002</td>
+              <td>Sara Mohamed</td>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17, 2026</td>
+              <td>10:05 AM</td>
+              <td><span class="badge badge-green">Present</span></td>
+            </tr>
+            <tr>
+              <td>20210003</td>
+              <td>Omar Youssef</td>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17, 2026</td>
+              <td>-</td>
+              <td><span class="badge badge-red">Absent</span></td>
+            </tr>
+            <tr>
+              <td>20210004</td>
+              <td>Nour Ali</td>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17, 2026</td>
+              <td>10:01 AM</td>
+              <td><span class="badge badge-green">Present</span></td>
+            </tr>
+            <tr>
+              <td>20210005</td>
+              <td>Youssef Kamal</td>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17, 2026</td>
+              <td>-</td>
+              <td><span class="badge badge-red">Absent</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../Javascript/script.js"></script>
+</body>
+</html>

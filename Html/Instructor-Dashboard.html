@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard – Recognise Me</title>
+  <link rel="stylesheet" href="../Css/Instructor.css" />
+</head>
+<body>
+
+ <header>
+    <div class="logo"><p>RM</p></div>
+    <div class="brand-name">
+      <p>Recognise me</p>
+      <p>Instructor Portal</p>
+    </div>
+    <nav class="top-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="enrollments.html">Courses</a>
+      <a href="session.html">Session</a>
+      <a href="attendance.html">Attendance</a>
+      <a href="report.html">Reports</a>
+    </nav>
+</header>
+  <div class="page-wrapper">
+    <div class="main-layout">
+
+      <div class="left-panel">
+        <p class="brand-label">Recognise me</p>
+        <h1>Instructor Dashboard</h1>
+        <p class="desc">Welcome back! View your courses, recent sessions, and attendance overview.</p>
+
+        <div class="step-box">
+          <p>Courses</p>
+          <p>Manage enrolled students per course</p>
+        </div>
+        <div class="step-box">
+          <p>Sessions</p>
+          <p>Create and track attendance sessions</p>
+        </div>
+        <div class="step-box">
+          <p>Reports</p>
+          <p>Generate attendance summary reports</p>
+        </div>
+        </div>
+
+      <div class="right-content">
+        <h2>Overview</h2>
+        <p class="subtext">A summary of your classes this semester.</p>
+
+        <div class="stats-row" style="grid-template-columns: repeat(4,1fr);">
+          <div class="stat-box">
+            <p class="s-label">Total Students</p>
+            <p class="s-value">128</p>
+          </div>
+          <div class="stat-box">
+            <p class="s-label">Active Courses</p>
+            <p class="s-value">4</p>
+          </div>
+          <div class="stat-box">
+            <p class="s-label">Sessions Today</p>
+            <p class="s-value">2</p>
+          </div>
+          <div class="stat-box">
+            <p class="s-label">Avg Attendance</p>
+            <p class="s-value">87%</p>
+          </div>
+        </div>
+
+        <p class="section-title">Recent Sessions</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Date</th>
+              <th>Present</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Advanced Algorithms</td>
+              <td>Mar 17</td>
+              <td>28 / 32</td>
+              <td><span class="badge badge-green">Done</span></td>
+            </tr>
+            <tr>
+              <td>Database Systems</td>
+              <td>Mar 16</td>
+              <td>24 / 30</td>
+              <td><span class="badge badge-green">Done</span></td>
+            </tr>
+            <tr>
+              <td>Software Engineering</td>
+              <td>Mar 15</td>
+              <td>19 / 35</td>
+              <td><span class="badge badge-green">Done</span></td>
+            </tr>
+            <tr>
+              <td>Computer Networks</td>
+              <td>Mar 14</td>
+              <td>30 / 31</td>
+              <td><span class="badge badge-green">Done</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="section-title">My Courses</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Course Name</th>
+              <th>Students</th>
+              <th>Next Session</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Advanced Algorithms</td>
+              <td><span class="badge badge-blue">32</span></td>
+              <td>Mar 18, 10:00 AM</td>
+            </tr>
+            <tr>
+              <td>Database Systems</td>
+              <td><span class="badge badge-blue">30</span></td>
+              <td>Mar 19, 1:00 PM</td>
+            </tr>
+            <tr>
+              <td>Software Engineering</td>
+              <td><span class="badge badge-blue">35</span></td>
+              <td>Mar 20, 9:00 AM</td>
+            </tr>
+            <tr>
+              <td>Computer Networks</td>
+              <td><span class="badge badge-blue">31</span></td>
+              <td>Mar 21, 11:00 AM</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../Javascript/scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Course Enrollments  Recognise Me</title>
+  <link rel="stylesheet" href="../Css/styles.css" />
+</head>
+<body>
+
+<header>
+    <div class="logo"><p>RM</p></div>
+    <div class="brand-name">
+      <p>Recognise me</p>
+      <p>Instructor Portal</p>
+    </div>
+    <nav class="top-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="enrollments.html">Courses</a>
+      <a href="session.html">Session</a>
+      <a href="attendance.html">Attendance</a>
+      <a href="report.html">Reports</a>
+    </nav>
+</header>
+
+  <div class="page-wrapper">
+    <div class="main-layout">
+
+      <div class="left-panel">
+        <p class="brand-label">Recognise me</p>
+        <h1>Course Enrollments</h1>
+        <p class="desc">Browse all students enrolled in your courses. Filter by course or search by name and student ID.</p>
+
+        <div class="step-box">
+          <p>Filter</p>
+          <p>Use the dropdown to filter by course</p>
+        </div>
+        <div class="step-box">
+          <p>Search</p>
+          <p>Type to find a student by name or ID</p>
+        </div>
+        <div class="step-box">
+          <p>Face Status</p>
+          <p>See which students have registered their face</p>
+        </div>
+        </div>
+
+      <div class="right-content">
+        <h2>Enrolled Students</h2>
+        <p class="subtext">View all students and their enrolled courses.</p>
+
+        <div class="filter-row">
+          <select id="courseFilter" onchange="filterTable()">
+            <option value="">All Courses</option>
+            <option>Advanced Algorithms</option>
+            <option>Database Systems</option>
+            <option>Software Engineering</option>
+            <option>Computer Networks</option>
+          </select>
+          <input type="text" id="searchInput" placeholder="Search name or student ID..." oninput="filterTable()" />
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Student ID</th>
+              <th>Full Name</th>
+              <th>Department</th>
+              <th>Course</th>
+              <th>Year</th>
+              <th>Face Registered</th>
+            </tr>
+          </thead>
+          <tbody id="studentTable">
+            <tr>
+              <td>20210001</td>
+              <td>Ahmed Hassan</td>
+              <td>Computer Science</td>
+              <td>Advanced Algorithms</td>
+              <td>Year 3</td>
+              <td><span class="badge badge-green">Yes</span></td>
+            </tr>
+            <tr>
+              <td>20210002</td>
+              <td>Sara Mohamed</td>
+              <td>Software Engineering</td>
+              <td>Database Systems</td>
+              <td>Year 2</td>
+              <td><span class="badge badge-green">Yes</span></td>
+            </tr>
+            <tr>
+              <td>20210003</td>
+              <td>Omar Youssef</td>
+              <td>Information Systems</td>
+              <td>Software Engineering</td>
+              <td>Year 3</td>
+              <td><span class="badge badge-red">No</span></td>
+            </tr>
+            <tr>
+              <td>20210004</td>
+              <td>Nour Ali</td>
+              <td>Computer Science</td>
+              <td>Computer Networks</td>
+              <td>Year 4</td>
+              <td><span class="badge badge-green">Yes</span></td>
+            </tr>
+            <tr>
+              <td>20210005</td>
+              <td>Youssef Kamal</td>
+              <td>Business Informatics</td>
+              <td>Advanced Algorithms</td>
+              <td>Year 2</td>
+              <td><span class="badge badge-red">No</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../Javascript/scripts.js"></script>
+</body>
+</html>

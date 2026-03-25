@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance Reports | FaceAttend Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../Css/Admin.css" />
+</head>
+<body data-page="reports">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="logo"><p>RM</p></div>
+      <div class="brand-name">
+        <p>Recognise me</p>
+        <p>Admin Portal</p>
+      </div>
+      <nav class="top-nav">
+        <a href="Admin-Dashboard.html">Dashboard</a>
+        <a href="manage-users.html">Manage Users</a>
+        <a href="session-history.html">Session History</a>
+        <a href="attendance-reports.html" class="active">Attendance Reports</a>
+        <a href="manual-attendance.html">Manual Attendance</a>
+      </nav>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </header>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Reporting</p>
+          <h2>Attendance Reports</h2>
+        </div>
+        <button class="primary-btn" id="downloadCsv">Download CSV</button>
+      </header>
+
+      <section class="grid three">
+        <article class="card metric-card">
+          <p class="eyebrow">Overall Attendance</p>
+          <h3 id="reportAttendanceRate">0%</h3>
+          <p class="muted">Average attendance across all stored records.</p>
+        </article>
+        <article class="card metric-card">
+          <p class="eyebrow">Present Records</p>
+          <h3 id="presentCount">0</h3>
+          <p class="muted">Students successfully recognized or confirmed present.</p>
+        </article>
+        <article class="card metric-card">
+          <p class="eyebrow">Absent Records</p>
+          <h3 id="absentCount">0</h3>
+          <p class="muted">Students marked absent after session close.</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Report Table</p>
+            <h3>Attendance records table</h3>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Verification</th>
+              </tr>
+            </thead>
+            <tbody id="reportsTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="../../Javascript/app.js"></script>
+</body>
+</html>
+<script>
+  function logout() {
+  window.location.href = "login.html";
+}
+</script>

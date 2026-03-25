@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session History | FaceAttend Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../Css/Admin.css" />
+</head>
+<body data-page="sessions">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="logo"><p>RM</p></div>
+      <div class="brand-name">
+        <p>Recognise me</p>
+        <p>Admin Portal</p>
+      </div>
+      <nav class="top-nav">
+        <a href="Admin-Dashboard.html">Dashboard</a>
+        <a href="manage-users.html">Manage Users</a>
+        <a href="session-history.html" class="active">Session History</a>
+        <a href="attendance-reports.html">Attendance Reports</a>
+        <a href="manual-attendance.html">Manual Attendance</a>
+      </nav>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </header>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Session Monitoring</p>
+          <h2>Session History</h2>
+        </div>
+        <button class="ghost-btn" id="refreshSessions">Refresh</button>
+      </header>
+
+      <section class="card hero-slim">
+        <div>
+          <p class="eyebrow">Attendance Sessions</p>
+          <h3>Review all face-recognition attendance sessions and their outcomes.</h3>
+        </div>
+        <div class="filters-row">
+          <input id="sessionSearch" class="input" type="search" placeholder="Search by course or instructor" />
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Instructor</th>
+                <th>Date</th>
+                <th>Recognized</th>
+                <th>Late</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="../../Javascript/app.js"></script>
+</body>
+</html>
+<script>
+  function logout() {
+  window.location.href = "login.html";
+}
+</script>

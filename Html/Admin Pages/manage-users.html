@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Users | FaceAttend Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../Css/Admin.css" />
+</head>
+<body data-page="users">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="logo"><p>RM</p></div>
+      <div class="brand-name">
+        <p>Recognise me</p>
+        <p>Admin Portal</p>
+      </div>
+      <nav class="top-nav">
+        <a href="Admin-Dashboard.html">Dashboard</a>
+        <a href="manage-users.html" class="active">Manage Users</a>
+        <a href="session-history.html">Session History</a>
+        <a href="attendance-reports.html">Attendance Reports</a>
+        <a href="manual-attendance.html">Manual Attendance</a>
+      </nav>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </header>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">User Administration</p>
+          <h2>Manage Users</h2>
+        </div>
+        <button class="primary-btn" id="openAddUser">Add User</button>
+      </header>
+
+      <section class="card hero-slim">
+        <div>
+          <p class="eyebrow">User Directory</p>
+          <h3>Create, edit, and remove admin, instructor, and student records.</h3>
+        </div>
+        <div class="filters-row">
+          <input id="userSearch" class="input" type="search" placeholder="Search by name, email, ID, or role" />
+          <select id="roleFilter" class="input select">
+            <option value="all">All roles</option>
+            <option value="student">Students</option>
+            <option value="instructor">Instructors</option>
+            <option value="admin">Admins</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Face Registered</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="userDialog" class="modal">
+    <form method="dialog" class="modal-card" id="userForm">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">User Form</p>
+          <h3 id="dialogTitle">Add User</h3>
+        </div>
+        <button type="button" class="icon-btn" id="closeDialog">×</button>
+      </div>
+      <input type="hidden" id="userId" />
+      <div class="form-grid">
+        <label>
+          Full Name
+          <input class="input" id="fullName" required />
+        </label>
+        <label>
+          Email
+          <input class="input" id="email" type="email" required />
+        </label>
+        <label>
+          Role
+          <select class="input select" id="role" required>
+            <option value="student">Student</option>
+            <option value="instructor">Instructor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <label>
+          University ID
+          <input class="input" id="universityId" required />
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="faceRegistered" />
+          Face Registered
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" id="cancelDialog">Cancel</button>
+        <button type="submit" class="primary-btn">Save User</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="../../Javascript/app.js"></script>
+</body>
+</html>
+<script>
+  function logout() {
+  window.location.href = "login.html";
+}
+</script>

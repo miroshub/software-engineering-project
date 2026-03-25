@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Attendance | FaceAttend Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../Css/Admin.css" />
+</head>
+<body data-page="manual">
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="logo"><p>RM</p></div>
+      <div class="brand-name">
+        <p>Recognise me</p>
+        <p>Admin Portal</p>
+      </div>
+      <nav class="top-nav">
+        <a href="Admin-Dashboard.html">Dashboard</a>
+        <a href="manage-users.html">Manage Users</a>
+        <a href="session-history.html">Session History</a>
+        <a href="attendance-reports.html">Attendance Reports</a>
+        <a href="manual-attendance.html" class="active">Manual Attendance</a>
+      </nav>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </header>
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Attendance Control</p>
+          <h2>Manual Attendance</h2>
+        </div>
+      </header>
+
+      <section class="card hero-slim">
+        <div>
+          <p class="eyebrow">Override Function</p>
+          <h3>Update a student's attendance record when recognition fails or needs correction.</h3>
+        </div>
+      </section>
+
+      <section class="card">
+        <form id="manualAttendanceForm" class="form-grid manual-form">
+          <label>
+            Student Name
+            <input class="input" id="manualStudent" placeholder="Enter student name" required />
+          </label>
+          <label>
+            Course
+            <input class="input" id="manualCourse" placeholder="Enter course name" required />
+          </label>
+          <label>
+            Date
+            <input class="input" id="manualDate" type="date" required />
+          </label>
+          <label>
+            Status
+            <select class="input select" id="manualStatus" required>
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </label>
+          <label class="full-span">
+            Reason for override
+            <textarea class="input textarea" id="manualReason" placeholder="Example: Face not recognized due to poor lighting."></textarea>
+          </label>
+          <div class="full-span action-row">
+            <button class="primary-btn" type="submit">Save Override</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Recent Overrides</p>
+            <h3>Admin review history</h3>
+          </div>
+        </div>
+        <div id="overrideHistory" class="stack-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="../../Javascript/app.js"></script>
+</body>
+</html>
+<script>
+  function logout() {
+  window.location.href = "login.html";
+}
+</script>

@@ -313,6 +313,16 @@ tbody tr:last-child td { border-bottom: none; }
   margin: 28px 0 14px;
 }
 
+.note {
+  margin-bottom: 18px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  border: 1px solid #dde2f0;
+  background: #f4f6fb;
+  color: #334155;
+  font-size: 14px;
+}
+
 @media (max-width: 1200px) {
   header {
     padding: 14px 24px;

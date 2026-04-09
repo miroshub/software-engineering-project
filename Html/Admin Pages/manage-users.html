@@ -24,7 +24,7 @@
         <a href="attendance-reports.html">Attendance Reports</a>
         <a href="manual-attendance.html">Manual Attendance</a>
       </nav>
-      <button class="logout-btn" onclick="logout()">Log out</button>
+      <button class="logout-btn" data-action="logout">Log out</button>
     </header>
 
     <main class="content">
@@ -117,8 +117,3 @@
   <script type="module" src="../../Javascript/app.js"></script>
 </body>
 </html>
-<script>
-  function logout() {
-  window.location.href = "login.html";
-}
-</script>

@@ -3,40 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login page</title>
+    <title>Student Login</title>
     <link rel="stylesheet" href="login.css" />
   </head>
   <body>
     <header>
-      <div class="logo">
-        <p>RM</p>
-      </div>
-      <div class="brand-name">
-        <p id="text1">Recognise me</p>
-        <p id="text2">Self-service portal</p>
-      </div>
+      <div class="logo"><p>RM</p></div>
+      <div class="brand-name"><p id="text1">Recognise me</p><p id="text2">Self-service portal</p></div>
     </header>
     <section class="login-container">
-      <form class="login-box">
+      <form class="login-box" id="studentLoginForm">
         <h2>Enter your credentials</h2>
-
         <label>Email</label>
-        <input id="Email" type="email" placeholder="Example@Tkh.edu.eg" />
-
-        <label> Password</label>
-        <input id="Pass" placeholder="*******" type="password" />
-
+        <input id="Email" type="email" placeholder="student@recogniseme.edu" required />
+        <label>Password</label>
+        <input id="Pass" placeholder="*******" type="password" required />
         <div class="options">
-          <label class="show-password">
-            <input type="checkbox" onclick="showpassword()" /> Show password
-          </label>
-          <a href="#" class="forgot-password"> Forgot password ?</a>
+          <label class="show-password"><input type="checkbox" onclick="showpassword()" /> Show password</label>
+          <a href="#" class="forgot-password">Forgot password?</a>
         </div>
-
-        <button id="submit-btn">Login</button>
+        <button id="submit-btn" type="submit">Login</button>
+        <p id="studentLoginStatus" class="status-message"></p>
       </form>
     </section>
-    <
     <script src="login.js"></script>
+    <script type="module" src="../Javascript/student-login.js"></script>
   </body>
 </html>

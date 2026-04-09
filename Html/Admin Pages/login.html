@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Recognize me Login</title>
+  <title>Recognise Me Admin Login</title>
   <link rel="stylesheet" href="../../Css/Admin.css" />
   <link rel="stylesheet" href="../../Css/login.css" />
 </head>
@@ -11,81 +11,30 @@
   <div class="login-wrapper">
     <div class="login-left">
       <div class="brand-badge">RM</div>
-      <h1>Recognize me</h1>
-
+      <h1>Recognise Me</h1>
       <div class="feature-list">
-        <div class="feature-card">
-         
-        </div>
-
-        <div class="feature-card">
         
-        </div>
-
-        <div class="feature-card">
-        
-        </div>
       </div>
     </div>
-
     <div class="login-right">
       <div class="login-card">
         <h2>Sign In</h2>
-        <p class="subtitle">
-          Enter your credentials to continue to the dashboard.
-        </p>
-
+        <p class="subtitle">Use your account to open the correct portal automatically.</p>
         <form id="loginForm">
           <div class="input-group">
             <label for="email">Email Address</label>
             <input type="email" id="email" placeholder="Enter your email" required />
           </div>
-
           <div class="input-group">
             <label for="password">Password</label>
             <input type="password" id="password" placeholder="Enter your password" required />
           </div>
-
-          <div class="form-row">
-            <label class="remember-me">
-              <input type="checkbox" id="rememberMe" />
-              Remember me
-            </label>
-            <a href="#" class="forgot-link">Forgot password?</a>
-          </div>
-
           <button type="submit" class="login-btn">Sign In</button>
           <div id="statusMessage" class="status-message"></div>
         </form>
       </div>
     </div>
   </div>
-
-  <script type="module">
-  import { auth } from "../js/firebase-config.js";
-  import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-  const loginForm = document.getElementById("loginForm");
-  const statusMessage = document.getElementById("statusMessage");
-
-  loginForm.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      statusMessage.className = "status-message success";
-      statusMessage.textContent = "Login successful. Redirecting...";
-      setTimeout(() => {
-        window.location.href = "index.html";
-      }, 1000);
-    } catch (error) {
-      statusMessage.className = "status-message error";
-      statusMessage.textContent = error.message;
-    }
-  });
-</script>
+  <script type="module" src="../../Javascript/admin-login.js"></script>
 </body>
 </html>

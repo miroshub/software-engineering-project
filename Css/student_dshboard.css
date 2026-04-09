@@ -1,0 +1,327 @@
+:root {
+    --primary: #14167a;
+    --primary-dark: #0f125f;
+    --primary-soft: #4b4ea3;
+    --bg: #f4f6fb;
+    --white: #ffffff;
+    --border: #d9deea;
+    --text-main: #1d2366;
+    --text-muted: #7d82a8;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --shadow: 0 10px 24px rgba(18, 22, 80, 0.06);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg);
+    color: var(--text-main);
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* NAVBAR */
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 26px;
+    background-color: var(--white);
+    border-bottom: 1px solid var(--border);
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background-color: var(--primary);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.site-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.2;
+}
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.user-details {
+    text-align: right;
+}
+
+.student-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.student-major {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+/* adds profile circle without changing html */
+.nav-user::after {
+    content: "";
+    width: 42px;
+    height: 42px;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    display: block;
+}
+
+/* MAIN WRAPPER */
+.wrapper {
+    padding: 28px;
+}
+
+.main-content {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2.1fr 0.95fr;
+    gap: 24px;
+    align-items: start;
+}
+
+/* COURSE GRID */
+.course-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+}
+
+.course-card {
+    background-color: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 24px;
+    position: relative;
+    box-shadow: var(--shadow);
+    min-height: 220px;
+}
+
+.badge {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.badge-live {
+    background-color: #ffe7eb;
+    color: #e55a73;
+}
+
+.badge-normal {
+    background-color: #eef1fb;
+    color: var(--primary);
+}
+
+.course-title {
+    margin: 12px 0 10px;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-main);
+}
+
+.instructor {
+    margin: 0 0 28px;
+    font-size: 1rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.progress-section {
+    margin-top: 4px;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.98rem;
+    color: var(--text-main);
+}
+
+.score,
+.success-text {
+    font-weight: 700;
+    color: var(--success);
+}
+
+.progress-track {
+    width: 100%;
+    height: 10px;
+    background-color: #e9edf6;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--success);
+    border-radius: 999px;
+    transition: width 0.35s ease;
+}
+
+/* SIDEBAR */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* support both sidebar-card and sidebar-car from your html */
+.sidebar-card,
+.sidebar-car {
+    background-color: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+}
+
+.summary-card h3,
+.notice-card h3 {
+    margin: 0 0 22px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.summary-stat {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+.attend-no,
+.big-number {
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--primary);
+}
+
+.stat-label {
+    margin-top: 6px;
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.report-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: none;
+    border-radius: 12px;
+    background-color: var(--primary);
+    color: var(--white);
+    font-size: 0.96rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.report-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+.notice-card {
+    background-color: var(--primary);
+    color: var(--white);
+}
+
+.notice-card h3 {
+    color: var(--white);
+}
+
+.notice-card p {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+/* subtle hover */
+.course-card:hover,
+.sidebar-card:hover,
+.sidebar-car:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-card,
+    .sidebar-car {
+        flex: 1 1 300px;
+    }
+}
+
+@media (max-width: 800px) {
+    nav {
+        padding: 18px 18px;
+    }
+
+    .wrapper {
+        padding: 18px;
+    }
+
+    .course-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .course-title {
+        font-size: 1.45rem;
+    }
+
+    .site-title {
+        font-size: 1.3rem;
+    }
+
+    .logo-box {
+        width: 46px;
+        height: 46px;
+    }
+}

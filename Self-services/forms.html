@@ -8,17 +8,14 @@
   </head>
   <body>
     <header>
-      <div class="logo"><p>RM</p></div>
       <div class="brand-name"><p id="text1">Recognise me</p><p id="text2">Self-service portal</p></div>
     </header>
     <div class="page-wrapper">
       <div class="main-layout">
-        
-        </section>
         <section class="form">
           <div class="container">
             <h2>Create Student Profile</h2>
-            <p class="form-subtext">Fill in your details, choose your courses, and complete face registration.</p>
+            <p class="form-subtext">Fill in your details and complete face registration.</p>
             <form id="registrationForm">
               <div class="form-row">
                 <div class="input-box"><label for="fullName">Full Name</label><input type="text" id="fullName" placeholder="Enter full name" required /></div>
@@ -35,9 +32,18 @@
              
               <div class="face-section">
                 <h3>Face Registration</h3>
-                <p>Capture your face data for future attendance verification.</p>
-                <button type="button" id="captureFaceBtn" class="face-btn">Register Face</button>
+                <p>Open the camera once, keep it running, then capture a face snapshot when you are ready.</p>
+                <div class="camera-actions">
+                  <button type="button" id="startCameraBtn" class="face-btn">Open Camera</button>
+                  <button type="button" id="captureFaceBtn" class="face-btn" disabled>Register Face</button>
+                  <button type="button" id="closeCameraBtn" class="clear-btn" disabled>Close Camera</button>
+                </div>
                 <p id="faceStatus" class="face-status">Face data not registered yet.</p>
+                <div id="cameraBox" hidden>
+                  <video id="cameraFeed" autoplay playsinline muted></video>
+                  <canvas id="captureCanvas" hidden></canvas>
+                  <p>Keep your face inside the frame, then click Register Face.</p>
+                </div>
               </div>
               <div id="statusMessage" class="status-message"></div>
               <div class="button-row"><button type="reset" class="clear-btn">Clear</button><button type="submit" class="submit-btn">Submit Registration</button></div>

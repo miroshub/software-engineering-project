@@ -1,0 +1,11 @@
+envb/
+
+--pycache--/
+*.pycache
+
+.envb
+
+.Ds_Store
+Thumbs.db
+
+.vscode/

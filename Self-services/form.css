@@ -176,10 +176,42 @@ header {
   margin-top: 10px;
 }
 
+.camera-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+#cameraBox {
+  margin-top: 16px;
+}
+
+#cameraFeed {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 12px;
+  background-color: rgb(15, 15, 30);
+}
+
 .face-status {
   margin-top: 12px;
   color: rgba(13, 13, 99, 0.7);
   font-weight: bold;
+}
+
+.status-message {
+  margin-top: 16px;
+  min-height: 20px;
+  font-weight: bold;
+}
+
+.status-message.success {
+  color: rgb(20, 120, 50);
+}
+
+.status-message.error {
+  color: rgb(180, 40, 40);
 }
 
 .button-row {

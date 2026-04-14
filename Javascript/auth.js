@@ -1,6 +1,6 @@
 import { auth } from './firebase-config.js';
 import { signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getUserByUid, getUserByEmail } from './firebase-service.js';
+import { getLoginProfileByUid, getLoginProfileByEmail } from './firebase-service.js';
 
 const SESSION_KEY = 'recogniseMeSession';
 
@@ -19,8 +19,8 @@ export function setStoredSession(profile) {
 export async function loginWithRole(email, password, allowedRoles = []) {
   try {
     const credential = await signInWithEmailAndPassword(auth, email, password);
-    const profile = await getUserByUid(credential.user.uid);
-    if (!profile) throw new Error('No user profile found in Firestore for this account.');
+    const profile = await getLoginProfileByUid(credential.user.uid) || await getLoginProfileByEmail(email);
+    if (!profile) throw new Error('No matching login profile was found in Firestore for this account.');
     if (allowedRoles.length && !allowedRoles.includes(profile.role)) {
       await signOut(auth);
       throw new Error('You do not have permission to open this portal.');
@@ -28,13 +28,13 @@ export async function loginWithRole(email, password, allowedRoles = []) {
     setStoredSession(profile);
     return profile;
   } catch (firebaseError) {
-    const demoProfile = await getUserByEmail(email);
-    if (demoProfile && demoProfile.password === password) {
-      if (allowedRoles.length && !allowedRoles.includes(demoProfile.role)) {
+    const fallbackProfile = await getLoginProfileByEmail(email);
+    if (fallbackProfile && fallbackProfile.password === password) {
+      if (allowedRoles.length && !allowedRoles.includes(fallbackProfile.role)) {
         throw new Error('You do not have permission to open this portal.');
       }
-      setStoredSession(demoProfile);
-      return demoProfile;
+      setStoredSession(fallbackProfile);
+      return fallbackProfile;
     }
     throw new Error(firebaseError?.message || 'Login failed.');
   }

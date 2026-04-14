@@ -97,6 +97,107 @@ export async function getUserByEmail(email) {
   return list.find((user) => String(user.email).toLowerCase() === String(email).toLowerCase()) || null;
 }
 
+function normalizeUserProfile(id, user = {}) {
+  const normalizedRole = String(user.role || '').toLowerCase();
+  return {
+    id,
+    uid: user.uid || id,
+    fullName: user.fullName || '',
+    email: user.email || '',
+    role: normalizedRole,
+    universityId: user.universityId || user.studentId || '',
+    studentId: user.studentId || user.universityId || '',
+    faceRegistered: Boolean(user.faceRegistered),
+    department: user.department || '',
+    academicYear: user.academicYear || '',
+    phone: user.phone || '',
+    password: user.password || '',
+    createdAt: user.createdAt || '',
+    sourceCollection: 'users',
+    accountType: normalizedRole === 'student' ? 'student' : 'staff'
+  };
+}
+
+function normalizeStudentProfile(id, student = {}) {
+  return {
+    id,
+    uid: student.uid || id,
+    fullName: student.fullName || '',
+    email: student.email || '',
+    role: 'student',
+    universityId: student.studentId || student.universityId || id,
+    studentId: student.studentId || student.universityId || id,
+    faceRegistered: Boolean(student.faceRegistered),
+    department: student.department || '',
+    academicYear: student.academicYear || '',
+    phone: student.phone || '',
+    password: student.password || '',
+    createdAt: student.createdAt || '',
+    sourceCollection: 'Student',
+    accountType: 'student'
+  };
+}
+
+function getDemoLoginProfileByUid(uid) {
+  const user = memoryStore.users.find((item) => item.uid === uid || item.id === uid);
+  if (!user) return null;
+  return user.role === 'student'
+    ? normalizeStudentProfile(user.id || user.uid, { ...user, studentId: user.universityId || user.studentId })
+    : normalizeUserProfile(user.id || user.uid, user);
+}
+
+function getDemoLoginProfileByEmail(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const user = memoryStore.users.find((item) => String(item.email || '').trim().toLowerCase() === normalizedEmail);
+  if (!user) return null;
+  return user.role === 'student'
+    ? normalizeStudentProfile(user.id || user.uid, { ...user, studentId: user.universityId || user.studentId })
+    : normalizeUserProfile(user.id || user.uid, user);
+}
+
+export async function getLoginProfileByUid(uid) {
+  return safe(async () => {
+    const studentMatches = await getDocs(query(collection(db, 'Student'), where('uid', '==', uid)));
+    if (!studentMatches.empty) {
+      const match = studentMatches.docs[0];
+      return normalizeStudentProfile(match.id, match.data());
+    }
+
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return normalizeUserProfile(userDoc.id, userDoc.data());
+    }
+
+    const userMatches = await getDocs(query(collection(db, 'users'), where('uid', '==', uid)));
+    if (!userMatches.empty) {
+      const match = userMatches.docs[0];
+      return normalizeUserProfile(match.id, match.data());
+    }
+
+    return null;
+  }, () => getDemoLoginProfileByUid(uid));
+}
+
+export async function getLoginProfileByEmail(email) {
+  const normalizedEmail = String(email || '').trim();
+
+  return safe(async () => {
+    const studentMatches = await getDocs(query(collection(db, 'Student'), where('email', '==', normalizedEmail)));
+    if (!studentMatches.empty) {
+      const match = studentMatches.docs[0];
+      return normalizeStudentProfile(match.id, match.data());
+    }
+
+    const userMatches = await getDocs(query(collection(db, 'users'), where('email', '==', normalizedEmail)));
+    if (!userMatches.empty) {
+      const match = userMatches.docs[0];
+      return normalizeUserProfile(match.id, match.data());
+    }
+
+    return null;
+  }, () => getDemoLoginProfileByEmail(email));
+}
+
 export async function saveUser(user) {
   const uid = user.uid || user.id || makeId('user');
   const payload = {

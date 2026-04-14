@@ -3,23 +3,23 @@ import { loginWithRole } from './auth.js';
 const form = document.getElementById('loginForm');
 const status = document.getElementById('statusMessage');
 
-function redirectByRole(role) {
-  if (role === 'admin') {
+function redirectAfterLogin(profile) {
+  if (profile.accountType === 'student' || profile.sourceCollection === 'Student') {
+    window.location.href = '../Student_Dashboard.html';
+    return;
+  }
+
+  if (profile.sourceCollection === 'users' && profile.role === 'admin') {
     window.location.href = 'Admin-Dashboard.html';
     return;
   }
 
-  if (role === 'instructor') {
+  if (profile.sourceCollection === 'users' && profile.role === 'instructor') {
     window.location.href = '../Instructor pages/Instructor-Dashboard.html';
     return;
   }
 
-  if (role === 'student') {
-    window.location.href = '../../Self-services/forms.html';
-    return;
-  }
-
-  throw new Error('Unknown user role.');
+  throw new Error('Unknown user type.');
 }
 
 form?.addEventListener('submit', async (event) => {
@@ -36,7 +36,7 @@ form?.addEventListener('submit', async (event) => {
     status.className = 'status-message success';
     status.textContent = 'Login successful. Redirecting...';
 
-    redirectByRole(profile.role);
+    redirectAfterLogin(profile);
   } catch (error) {
     status.className = 'status-message error';
     status.textContent = error.message;

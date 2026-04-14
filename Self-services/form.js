@@ -1,5 +1,10 @@
 import { auth, db } from '../Javascript/firebase-config.js';
-import { signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  signInAnonymously,
+  EmailAuthProvider,
+  linkWithCredential,
+  deleteUser
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { doc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -30,6 +35,49 @@ async function ensureFirebaseSession() {
   return credential.user;
 }
 
+async function createStudentAccount(email, password) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+
+  if (auth.currentUser && !auth.currentUser.isAnonymous) {
+    const currentEmail = String(auth.currentUser.email || '').trim().toLowerCase();
+    if (currentEmail === normalizedEmail) {
+      return { user: auth.currentUser, shouldCleanupOnFailure: false };
+    }
+
+    const error = new Error('Another account is already signed in in this browser.');
+    error.code = 'auth/session-conflict';
+    throw error;
+  }
+
+  const anonymousUser = await ensureFirebaseSession();
+  const credential = EmailAuthProvider.credential(email, password);
+  const linked = await linkWithCredential(anonymousUser, credential);
+  return { user: linked.user, shouldCleanupOnFailure: true };
+}
+
+async function saveStudentProfileDocuments(firebaseUser, studentId, studentData, faceData) {
+  const candidateDocIds = Array.from(new Set([studentId, firebaseUser.uid].filter(Boolean)));
+  let lastError = null;
+
+  for (const docId of candidateDocIds) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'Student', docId), { ...studentData, uid: firebaseUser.uid }, { merge: true });
+    batch.set(doc(db, 'Face_data', docId), { ...faceData, uid: firebaseUser.uid }, { merge: true });
+
+    try {
+      await batch.commit();
+      return docId;
+    } catch (error) {
+      lastError = error;
+      const isPermissionError = String(error?.code || '').includes('permission-denied');
+      const hasMoreCandidates = docId !== candidateDocIds[candidateDocIds.length - 1];
+      if (!isPermissionError || !hasMoreCandidates) throw error;
+    }
+  }
+
+  throw lastError || new Error('Could not save student profile.');
+}
+
 function getSaveErrorMessage(error) {
   const code = String(error?.code || '');
 
@@ -39,6 +87,22 @@ function getSaveErrorMessage(error) {
 
   if (code.includes('operation-not-allowed') || code.includes('admin-restricted-operation')) {
     return 'Enable Anonymous sign-in in Firebase Authentication to allow this form to save.';
+  }
+
+  if (code.includes('email-already-in-use')) {
+    return 'This email already has a student account. Try logging in instead.';
+  }
+
+  if (code.includes('weak-password')) {
+    return 'Use a stronger password with at least 6 characters.';
+  }
+
+  if (code.includes('invalid-email')) {
+    return 'Enter a valid email address.';
+  }
+
+  if (code.includes('session-conflict')) {
+    return 'Another account is already signed in in this browser. Open the self-service page in a fresh session.';
   }
 
   return error?.message || 'Could not save to Firebase.';
@@ -270,12 +334,24 @@ registrationForm.addEventListener('submit', async (event) => {
   const fullName = document.getElementById('fullName').value.trim();
   const email = document.getElementById('email').value.trim();
   const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
   const department = document.getElementById('department').value;
   const academicYear = document.getElementById('academicYear').value;
   const createdAt = new Date().toISOString();
 
   if (studentId !== faceLabel) {
     setStatus('Student ID changed. Register the face again.', 'error');
+    return;
+  }
+
+  if (password.length < 6) {
+    setStatus('Password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setStatus('Password and confirm password do not match.', 'error');
     return;
   }
 
@@ -300,27 +376,22 @@ registrationForm.addEventListener('submit', async (event) => {
   };
 
   try {
-    const firebaseUser = await ensureFirebaseSession();
-    const batch = writeBatch(db);
-
-    batch.set(doc(db, 'users', firebaseUser.uid), {
-      uid: firebaseUser.uid,
-      fullName,
-      email,
-      role: 'student',
-      universityId: studentId,
-      faceRegistered: true,
-      department,
-      academicYear,
-      createdAt
-    }, { merge: true });
-    batch.set(doc(db, 'Student', studentId), { ...studentData, uid: firebaseUser.uid }, { merge: true });
-    batch.set(doc(db, 'Face_data', studentId), { ...faceData, uid: firebaseUser.uid }, { merge: true });
-    await batch.commit();
+    const { user: firebaseUser, shouldCleanupOnFailure } = await createStudentAccount(email, password);
+    await firebaseUser.getIdToken(true);
+    try {
+      await saveStudentProfileDocuments(firebaseUser, studentId, studentData, faceData);
+    } catch (error) {
+      if (shouldCleanupOnFailure) {
+        await deleteUser(firebaseUser).catch(() => {});
+      }
+      throw error;
+    }
 
     resultText.textContent = 'Registration submitted successfully.';
     resultContent.innerHTML = `<p><strong>Name:</strong> ${fullName}</p><p><strong>Student ID:</strong> ${studentId}</p><p><strong>Email:</strong> ${email}</p><p><strong>Phone:</strong> ${phone}</p><p><strong>Department:</strong> ${department}</p><p><strong>Academic Year:</strong> ${academicYear}</p><p><strong>Face Registration:</strong> Completed</p>`;
-    setStatus('Student saved to Firebase.', 'success');
+    setStatus('Student account created. You can now log in with your email and password.', 'success');
+    document.getElementById('password').value = '';
+    document.getElementById('confirmPassword').value = '';
     clearDraft();
     closeCamera();
   } catch (error) {

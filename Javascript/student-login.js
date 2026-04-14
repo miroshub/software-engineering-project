@@ -9,7 +9,7 @@ form?.addEventListener('submit', async (event) => {
     await loginWithRole(document.getElementById('Email').value.trim(), document.getElementById('Pass').value.trim(), ['student']);
     status.textContent = 'Login successful.';
     status.className = 'status-message success';
-    window.location.href = 'forms.html';
+    window.location.href = '../Html/Student_Dashboard.html';
   } catch (error) {
     status.textContent = error.message;
     status.className = 'status-message error';

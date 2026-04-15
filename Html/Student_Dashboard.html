@@ -1,118 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Student Dashboard</title>
-        <link rel="stylesheet" href="../Css/student_dshboard.css">
-    </head>
-    <body>
-        <nav>
-            <div class="logo-area">
-                <div class="logo-box">RM</div>
-                <span class="site-title">Recognize Me</span>
-            </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="../Css/student_dshboard.css">
+</head>
+<body>
+    <nav>
+        <div class="logo-area">
+            <div class="logo-box">RM</div>
+            <span class="site-title">Recognize Me</span>
+        </div>
+        <div class="nav-actions">
             <div class="nav-user">
                 <div class="user-details">
-                    <div class="student-name">Students Name</div>
-                    <div class="student-major">Student Major</div>
+                    <div class="student-name" id="studentName">Student Name</div>
+                    <div class="student-major" id="studentMajor">Department</div>
                 </div>
             </div>
-        </nav>
+            <button id="logoutBtn" class="nav-btn" type="button">Log out</button>
+        </div>
+    </nav>
 
-        <div class="wrapper">
-            <main class="main-content">
-                <section class="course-grid">
-                    <div class="course-card">
-                        <span class="badge badge-normal">Day/Time</span>
-                        <h3 class="course-title">Course Name</h3>
-                        <p class="instructor">Professors Name ... Room</p>
-                    
-                        <div class="progress-section">
-                            <div class="progress-label">
-                                <span>Attendance Score</span>
-                                <span class="score success-text">%</span>
-                            </div>
-                            <div class="progress-track">
-                                <div class="progress-bar" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
+    <div class="wrapper">
+        <main class="main-content">
+            <section>
+                <div id="pageStatus" class="page-status" hidden></div>
+                <section id="courseGrid" class="course-grid"></section>
+            </section>
 
-                    <div class="course-card">
-                        <span class="badge badge-normal">Day/Time</span>
-                        <h3 class="course-title">Course Name</h3>
-                        <p class="instructor">Professors Name ... Room</p>
-                    
-                        <div class="progress-section">
-                            <div class="progress-label">
-                                <span>Attendance Score</span>
-                                <span class="score success-text">%</span>
-                            </div>
-                            <div class="progress-track">
-                                <div class="progress-bar" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="course-card">
-                        <span class="badge badge-normal">Day/Time</span>
-                        <h3 class="course-title">Course Name</h3>
-                        <p class="instructor">Professors Name ... Room</p>
-                    
-                        <div class="progress-section">
-                            <div class="progress-label">
-                                <span>Attendance Score</span>
-                                <span class="score success-text">%</span>
-                            </div>
-                            <div class="progress-track">
-                                <div class="progress-bar" style="width: 100%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="course-card">
-                        <span class="badge badge-normal">Day/Time</span>
-                        <h3 class="course-title">Course Name</h3>
-                        <p class="instructor">Professors Name ... Room</p>
-                    
-                        <div class="progress-section">
-                            <div class="progress-label">
-                                <span>Attendance Score</span>
-                                <span class="score success-text">%</span>
-                            </div>
-                            <div class="progress-track">
-                                <div class="progress-bar" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-            <aside class ="sidebar">
+            <aside class="sidebar">
                 <div class="sidebar-car summary-card">
-                    <h3> Weekly Summary </h3>
+                    <h3>Weekly Summary</h3>
 
                     <div class="summary-stat">
-                        <span class="attend-no"> __% </span>
-                        <span class="stat-label"> Average Attendance </span>
+                        <span id="averageAttendance" class="attend-no">0%</span>
+                        <span class="stat-label">Average Attendance</span>
                     </div>
 
                     <div class="summary-stat">
-                        <span class="big-number">__/__</span>
-                        <span class="stat-label">SESSIONS COMPLETED</span>
+                        <span id="completedSessions" class="big-number">0/0</span>
+                        <span class="stat-label">Sessions Completed</span>
                     </div>
 
-                    <button class="report-btn"> Download Report </button>
+                    <div class="summary-stat">
+                        <span id="activeSessions" class="big-number">0</span>
+                        <span class="stat-label">Live Sessions Available</span>
+                    </div>
+
+                    <button class="report-btn" id="downloadReportBtn" type="button">Download Report</button>
                 </div>
 
                 <div class="sidebar-card notice-card">
-                    <h3> System Notice </h3>
-                    <p> Please make sure you face is well-lit and still during verification to ensure processing delays and inaccuracy. </p>
+                    <h3>System Notice</h3>
+                    <p id="noticeText">Sign in with your saved credentials to access your enrolled courses and attendance overview.</p>
                 </div>
             </aside>
-
         </main>
-        </div>
-        <script src="../Javascript/student_dashboard.js"></script>
-    </body>
+    </div>
+
+    <script type="module" src="../Javascript/student_dashboard.js"></script>
+</body>
 </html>

@@ -15,25 +15,28 @@
         <section class="form">
           <div class="container">
             <h2>Create Student Profile</h2>
-            <p class="form-subtext">Fill in your details and complete face registration.</p>
+            <p class="form-subtext">Create a simple Computer Science student record, choose the enrolled courses, then complete face registration.</p>
             <form id="registrationForm">
               <div class="form-row">
-                <div class="input-box"><label for="fullName">Full Name</label><input type="text" id="fullName" placeholder="Enter full name" required /></div>
                 <div class="input-box"><label for="studentId">Student ID</label><input type="text" id="studentId" placeholder="Enter student ID" required /></div>
-              </div>
-              <div class="form-row">
                 <div class="input-box"><label for="email">University Email</label><input type="email" id="email" placeholder="Enter university email" required /></div>
-                <div class="input-box"><label for="phone">Phone Number</label><input type="text" id="phone" placeholder="Enter phone number" required /></div>
               </div>
               <div class="form-row">
                 <div class="input-box"><label for="password">Password</label><input type="password" id="password" placeholder="Create a password" minlength="6" required /></div>
-                <div class="input-box"><label for="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" placeholder="Repeat the password" minlength="6" required /></div>
+                <div class="input-box"><label>Department</label><div class="readonly-value">Computer Science</div></div>
               </div>
               <div class="form-row">
-                <div class="input-box"><label for="department">Department</label><select id="department" required><option value="">Select department</option><option>Computer Science</option><option>Information Systems</option><option>Software Engineering</option><option>Business Informatics</option></select></div>
-                <div class="input-box"><label for="academicYear">Academic Year</label><select id="academicYear" required><option value="">Select year</option><option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option></select></div>
+                <div class="input-box"><label>Enrollment</label><div class="readonly-value" id="courseCount">Select at least one course</div></div>
               </div>
-             
+
+              <div class="course-section">
+                <div class="section-heading">
+                  <h3>Computer Science Courses</h3>
+                  <p id="courseHelper">Loading available courses from Firebase...</p>
+                </div>
+                <div id="courseList" class="course-list"></div>
+              </div>
+
               <div class="face-section">
                 <h3>Face Registration</h3>
                 <p>Open the camera once, keep it running, then capture a face snapshot when you are ready.</p>

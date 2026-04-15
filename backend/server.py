@@ -47,6 +47,11 @@ class RegisterFaceRequest(BaseModel):
     imageData: str
 
 
+class VerifyFaceRequest(BaseModel):
+    studentId: str
+    imageData: str
+
+
 def normalize_name(raw_name: str) -> str:
     collapsed = " ".join(raw_name.strip().split())
     return "".join(character for character in collapsed if character not in INVALID_NAME_CHARS)
@@ -158,6 +163,19 @@ def train_model() -> bool:
     return True
 
 
+def recognize_face(processed_face: np.ndarray) -> tuple[str | None, float | None]:
+    if not model_ready and not load_model():
+        return None, None
+
+    try:
+        with model_lock:
+            label_id, confidence = recognizer.predict(processed_face)
+    except cv2.error:
+        return None, None
+
+    return label_map.get(int(label_id)), float(confidence)
+
+
 load_model()
 
 
@@ -203,4 +221,54 @@ def register_face(payload: RegisterFaceRequest):
         "count": REGISTER_TARGET,
         "target": REGISTER_TARGET,
         "message": "Face registered successfully.",
+    }
+
+
+@app.post("/verify-face")
+def verify_face(payload: VerifyFaceRequest):
+    expected_student_id = normalize_name(payload.studentId)
+    if not expected_student_id:
+        return {"ok": False, "message": "Enter a valid student ID first."}
+
+    frame = decode_image(payload.imageData)
+    if frame is None:
+        return {"ok": False, "message": "Could not read the captured image."}
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detect_faces(gray)
+    if not faces:
+        return {"ok": False, "message": "No face detected. Keep your face inside the frame and try again."}
+
+    x, y, w, h = max(faces, key=lambda face: face[2] * face[3])
+    raw_face = gray[y : y + h, x : x + w]
+    processed_face = preprocess_face(raw_face)
+
+    if processed_face is None or not is_usable_face(raw_face):
+        return {"ok": False, "message": "Hold still and keep your face clear in the frame."}
+
+    matched_student_id, confidence = recognize_face(processed_face)
+    if not matched_student_id or confidence is None:
+        return {"ok": False, "message": "No trained face data was available for verification."}
+
+    if confidence > RECOGNITION_THRESHOLD:
+        return {
+            "ok": False,
+            "message": "Face was detected, but it could not be confidently verified.",
+            "confidence": round(confidence, 2),
+        }
+
+    if normalize_name(matched_student_id) != expected_student_id:
+        return {
+            "ok": False,
+            "message": "The detected face does not match the logged-in student.",
+            "detectedStudentId": matched_student_id,
+            "confidence": round(confidence, 2),
+        }
+
+    return {
+        "ok": True,
+        "verified": True,
+        "studentId": matched_student_id,
+        "confidence": round(confidence, 2),
+        "message": "Face verified successfully.",
     }

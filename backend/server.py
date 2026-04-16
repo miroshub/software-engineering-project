@@ -12,7 +12,7 @@ from pydantic import BaseModel
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://(127\.0\.0\.1|localhost)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +52,10 @@ class VerifyFaceRequest(BaseModel):
     imageData: str
 
 
+class DetectFaceRequest(BaseModel):
+    imageData: str
+
+
 def normalize_name(raw_name: str) -> str:
     collapsed = " ".join(raw_name.strip().split())
     return "".join(character for character in collapsed if character not in INVALID_NAME_CHARS)
@@ -88,6 +92,11 @@ def detect_faces(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
         minSize=(60, 60),
     )
     return [(x * 2, y * 2, w * 2, h * 2) for (x, y, w, h) in detections]
+
+
+def serialize_face_box(face_box: tuple[int, int, int, int]) -> dict[str, int]:
+    x, y, w, h = face_box
+    return {"x": int(x), "y": int(y), "w": int(w), "h": int(h)}
 
 
 def decode_image(data_url: str) -> np.ndarray | None:
@@ -271,4 +280,34 @@ def verify_face(payload: VerifyFaceRequest):
         "studentId": matched_student_id,
         "confidence": round(confidence, 2),
         "message": "Face verified successfully.",
+    }
+
+
+@app.post("/detect-face")
+def detect_face(payload: DetectFaceRequest):
+    frame = decode_image(payload.imageData)
+    if frame is None:
+        return {"ok": False, "message": "Could not read the camera frame."}
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detect_faces(gray)
+    if not faces:
+        return {
+            "ok": True,
+            "detected": False,
+            "usable": False,
+            "message": "No face detected. Center your face in the frame.",
+        }
+
+    x, y, w, h = max(faces, key=lambda face: face[2] * face[3])
+    raw_face = gray[y : y + h, x : x + w]
+    processed_face = preprocess_face(raw_face)
+    usable = processed_face is not None and is_usable_face(raw_face)
+
+    return {
+        "ok": True,
+        "detected": True,
+        "usable": usable,
+        "box": serialize_face_box((x, y, w, h)),
+        "message": "Face detected." if usable else "Face detected. Move closer and hold still.",
     }

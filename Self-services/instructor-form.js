@@ -168,6 +168,7 @@ registrationForm.addEventListener('submit', async (event) => {
     studentId: instructorId,
     fullName,
     email,
+    password,
     phone,
     department,
     designation,

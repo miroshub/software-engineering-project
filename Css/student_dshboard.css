@@ -25,10 +25,6 @@ body {
     font-family: "Segoe UI", Arial, sans-serif;
 }
 
-body.modal-open {
-    overflow: hidden;
-}
-
 /* NAVBAR */
 nav {
     display: flex;
@@ -385,84 +381,6 @@ nav {
     color: rgba(255, 255, 255, 0.92);
 }
 
-.camera-modal {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background-color: rgba(16, 24, 40, 0.55);
-    z-index: 1000;
-}
-
-.camera-card {
-    width: min(560px, 100%);
-    background-color: var(--white);
-    border-radius: 24px;
-    padding: 24px;
-    box-shadow: 0 24px 60px rgba(15, 18, 95, 0.22);
-}
-
-.camera-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 18px;
-}
-
-.camera-head h3 {
-    margin: 0 0 6px;
-    font-size: 1.35rem;
-}
-
-.camera-head p {
-    margin: 0;
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
-.icon-btn {
-    width: 40px;
-    height: 40px;
-    border: none;
-    border-radius: 12px;
-    background-color: #eef1fb;
-    color: var(--primary);
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.camera-feed {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border-radius: 18px;
-    object-fit: cover;
-    background-color: #0f172a;
-}
-
-.camera-status {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background-color: #eef1fb;
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.camera-status.error {
-    background-color: #fff0f0;
-    color: var(--danger);
-}
-
-.camera-actions {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 18px;
-}
-
 /* subtle hover */
 .course-card:hover,
 .sidebar-card:hover,
@@ -521,11 +439,4 @@ nav {
         height: 46px;
     }
 
-    .camera-card {
-        padding: 18px;
-    }
-
-    .camera-actions {
-        grid-template-columns: 1fr;
-    }
 }

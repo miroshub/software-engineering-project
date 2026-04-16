@@ -12,7 +12,6 @@
   <div class="brand-name"><p>Recognise me</p><p>Instructor Portal</p></div>
   <nav class="top-nav">
     <a href="Instructor-Dashboard.html">Dashboard</a>
-    <a href="enrollments.html">Courses</a>
     <a href="session.html">Session</a>
     <a href="attendance.html">Attendance</a>
     <a href="report.html">Reports</a>
@@ -23,18 +22,19 @@
     <div class="right-content">
       <h2>Overview</h2>
       <p class="subtext">Live summary for the logged-in instructor.</p>
+      <div id="pageStatus" class="note" style="display:none;"></div>
       <div class="stats-row" style="grid-template-columns: repeat(4,1fr);">
-        <div class="stat-box"><p class="s-label">Total Students</p><p class="s-value">0</p></div>
-        <div class="stat-box"><p class="s-label">Active Courses</p><p class="s-value">0</p></div>
-        <div class="stat-box"><p class="s-label">Sessions Today</p><p class="s-value">0</p></div>
-        <div class="stat-box"><p class="s-label">Avg Attendance</p><p class="s-value">0%</p></div>
+        <div class="stat-box"><p class="s-label">Total Students</p><p class="s-value" id="totalStudentsStat">0</p></div>
+        <div class="stat-box"><p class="s-label">Active Courses</p><p class="s-value" id="activeCoursesStat">0</p></div>
+        <div class="stat-box"><p class="s-label">Sessions Today</p><p class="s-value" id="sessionsTodayStat">0</p></div>
+        <div class="stat-box"><p class="s-label">Avg Attendance</p><p class="s-value" id="averageAttendanceStat">0%</p></div>
       </div>
       <p class="section-title">Recent Sessions</p>
       <table>
         <thead><tr><th>Course</th><th>Date</th><th>Present</th><th>Status</th></tr></thead>
         <tbody id="recentSessionsBody"></tbody>
       </table>
-      <p class="section-title">My Courses</p>
+      <p class="section-title">Available Courses</p>
       <table>
         <thead><tr><th>Course Name</th><th>Students</th><th>Next Session</th></tr></thead>
         <tbody id="courseSummaryBody"></tbody>

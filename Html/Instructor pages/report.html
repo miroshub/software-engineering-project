@@ -12,7 +12,6 @@
   <div class="brand-name"><p>Recognise me</p><p>Instructor Portal</p></div>
   <nav class="top-nav">
     <a href="Instructor-Dashboard.html">Dashboard</a>
-    <a href="enrollments.html">Courses</a>
     <a href="session.html">Session</a>
     <a href="attendance.html">Attendance</a>
     <a href="report.html">Reports</a>
@@ -23,6 +22,7 @@
   <div class="right-content">
     <h2>Report Filters</h2>
     <p class="subtext">Choose a course and date range then click Generate.</p>
+    <div id="pageStatus" class="note" style="display:none;"></div>
     <div class="form-row">
       <div class="input-box"><label for="repCourse">Course</label><select id="repCourse"><option value="">All Courses</option></select></div>
       <div class="input-box"><label for="repStudent">Student ID (optional)</label><input type="text" id="repStudent" placeholder="e.g. 20210001" /></div>
@@ -35,9 +35,9 @@
     <div id="reportOutput" style="display:none;">
       <p class="section-title">Report Summary</p>
       <div class="stats-row">
-        <div class="stat-box"><p class="s-label">Total Sessions</p><p class="s-value">0</p></div>
-        <div class="stat-box"><p class="s-label">Avg Attendance</p><p class="s-value">0%</p></div>
-        <div class="stat-box"><p class="s-label">Students Below 75%</p><p class="s-value">0</p></div>
+        <div class="stat-box"><p class="s-label">Total Sessions</p><p class="s-value" id="reportSessionsStat">0</p></div>
+        <div class="stat-box"><p class="s-label">Avg Attendance</p><p class="s-value" id="reportAverageStat">0%</p></div>
+        <div class="stat-box"><p class="s-label">Students Below 75%</p><p class="s-value" id="reportBelowThresholdStat">0</p></div>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <p class="section-title" style="margin:0;">Attendance Summary</p>

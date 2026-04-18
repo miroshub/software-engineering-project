@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instructor Self Registration</title>
+    <link rel="stylesheet" href="instructor-form.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand-name"><p id="text1">Recognise me</p><p id="text2">Self-service portal</p></div>
+    </header>
+    <div class="page-wrapper">
+      <div class="main-layout">
+        <section class="form">
+          <div class="container">
+            <h2>Create Instructor Profile</h2>
+            <p class="form-subtext">Fill in your details to create an instructor account and save it to Firebase.</p>
+            <form id="registrationForm">
+              <div class="form-row">
+                <div class="input-box"><label for="fullName">Full Name</label><input type="text" id="fullName" placeholder="Enter full name" required /></div>
+                <div class="input-box"><label for="instructorId">Instructor ID</label><input type="text" id="instructorId" placeholder="Enter instructor ID" required /></div>
+              </div>
+              <div class="form-row">
+                <div class="input-box"><label for="email">University Email</label><input type="email" id="email" placeholder="Enter university email" required /></div>
+                <div class="input-box"><label for="phone">Phone Number</label><input type="text" id="phone" placeholder="Enter phone number" required /></div>
+              </div>
+              <div class="form-row">
+                <div class="input-box"><label for="password">Password</label><input type="password" id="password" placeholder="Create a password" minlength="6" required /></div>
+                <div class="input-box"><label for="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" placeholder="Repeat the password" minlength="6" required /></div>
+              </div>
+              <div class="form-row">
+                <div class="input-box"><label for="department">Department</label><select id="department" required><option value="">Select department</option><option>Computer Science</option><option>Information Systems</option><option>Software Engineering</option><option>Business Informatics</option></select></div>
+                <div class="input-box"><label for="designation">Designation</label><select id="designation" required><option value="">Select designation</option><option>Teaching Assistant</option><option>Assistant Lecturer</option><option>Lecturer</option><option>Professor</option></select></div>
+              </div>
+              <div id="statusMessage" class="status-message"></div>
+              <div class="button-row"><button type="reset" class="clear-btn">Clear</button><button type="submit" class="submit-btn">Submit Registration</button></div>
+            </form>
+            <div class="result-box">
+              <p id="resultText">Your submitted information will appear here.</p>
+              <div id="resultContent"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="instructor-form.js"></script>
+  </body>
+</html>

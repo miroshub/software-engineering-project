@@ -1,11 +1,18 @@
+# Virtual environments
 envb/
+.envb/
+venv/
+.venv/
 
---pycache--/
-*.pycache
+# Python cache files
+__pycache__/
+*.py[cod]
 
-.envb
+# Generated face-recognition model artifacts
+backend/model/trainer.yml
+backend/model/trianer.yml
 
-.Ds_Store
+# OS and editor files
+.DS_Store
 Thumbs.db
-
 .vscode/

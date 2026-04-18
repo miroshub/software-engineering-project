@@ -131,12 +131,35 @@ header {
   border-color: rgb(13, 13, 99);
 }
 
+.readonly-value {
+  padding: 12px;
+  border: 1px solid rgb(200, 205, 230);
+  border-radius: 10px;
+  background-color: rgb(245, 247, 255);
+  color: rgb(13, 13, 99);
+  min-height: 19px;
+}
+
 .course-section {
   margin-top: 20px;
 }
 
-.course-section h3 {
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.course-section h3 {
+  margin: 0;
+}
+
+.section-heading p {
+  margin: 0;
+  color: rgba(13, 13, 99, 0.7);
 }
 
 .course-list {
@@ -152,6 +175,52 @@ header {
   padding: 12px 14px;
   color: rgb(13, 13, 99);
   min-width: 220px;
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+}
+
+.course-card input {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.course-card.selected {
+  border-color: rgb(13, 13, 99);
+  box-shadow: 0 0 0 2px rgba(13, 13, 99, 0.12);
+}
+
+.course-card h4 {
+  margin: 0 0 8px;
+  padding-right: 24px;
+}
+
+.course-card p {
+  margin: 0 0 8px;
+  color: rgba(13, 13, 99, 0.8);
+}
+
+.course-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.course-meta span {
+  background-color: rgba(13, 13, 99, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.empty-state {
+  width: 100%;
+  padding: 18px;
+  background-color: rgb(245, 247, 255);
+  border: 1px dashed rgb(210, 215, 240);
+  border-radius: 12px;
+  color: rgba(13, 13, 99, 0.75);
 }
 
 .face-section {
@@ -238,6 +307,18 @@ header {
   padding: 12px 20px;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.result-box {
+  margin-top: 24px;
+  background-color: rgb(245, 247, 255);
+  border: 1px solid rgb(210, 215, 240);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.result-box p {
+  margin: 0 0 8px;
 }
 
 @media (max-width: 900px) {

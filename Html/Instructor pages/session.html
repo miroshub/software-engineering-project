@@ -12,7 +12,6 @@
   <div class="brand-name"><p>Recognise me</p><p>Instructor Portal</p></div>
   <nav class="top-nav">
     <a href="Instructor-Dashboard.html">Dashboard</a>
-    <a href="enrollments.html">Courses</a>
     <a href="session.html">Session</a>
     <a href="attendance.html">Attendance</a>
     <a href="report.html">Reports</a>
@@ -23,6 +22,7 @@
   <div class="right-content">
     <h2>Session Details</h2>
     <p class="subtext">Fill in the details below to create a new attendance session.</p>
+    <div id="pageStatus" class="note" style="display:none;"></div>
     <div class="form-row">
       <div class="input-box"><label for="course">Course</label><select id="course"><option value="">Select course</option></select></div>
       <div class="input-box"><label for="sessionDate">Date</label><input type="date" id="sessionDate" /></div>
@@ -34,7 +34,7 @@
     <div class="form-row full"><div class="input-box"><label for="location">Location / Room</label><input type="text" id="location"/></div></div>
     <div class="form-row full"><div class="input-box"><label for="notes">Notes (optional)</label><textarea id="notes" rows="3"></textarea></div></div>
     <button class="btn btn-primary" id="createSessionBtn">Create Session</button>
-    <div id="successMsg" class="success-msg" style="display:none;">✔ Session created successfully!</div>
+    <div id="successMsg" class="success-msg" style="display:none;">Session created successfully.</div>
     <p class="section-title">Upcoming Sessions</p>
     <table>
       <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Location</th><th>Status</th></tr></thead>

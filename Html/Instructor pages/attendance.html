@@ -12,7 +12,6 @@
   <div class="brand-name"><p>Recognise me</p><p>Instructor Portal</p></div>
   <nav class="top-nav">
     <a href="Instructor-Dashboard.html">Dashboard</a>
-    <a href="enrollments.html">Courses</a>
     <a href="session.html">Session</a>
     <a href="attendance.html">Attendance</a>
     <a href="report.html">Reports</a>
@@ -23,15 +22,16 @@
   <div class="right-content">
     <h2>Attendance Records</h2>
     <p class="subtext">Filter by course or date to view session attendance.</p>
+    <div id="pageStatus" class="note" style="display:none;"></div>
     <div class="filter-row">
       <select id="courseFilter"><option value="">All Courses</option></select>
       <input type="date" id="dateFilter" />
       <input type="text" id="searchInput" placeholder="Search student..." />
     </div>
     <div class="stats-row">
-      <div class="stat-box"><p class="s-label">Present</p><p class="s-value">0</p></div>
-      <div class="stat-box"><p class="s-label">Absent</p><p class="s-value">0</p></div>
-      <div class="stat-box"><p class="s-label">Attendance Rate</p><p class="s-value">0%</p></div>
+      <div class="stat-box"><p class="s-label">Present</p><p class="s-value" id="presentCountStat">0</p></div>
+      <div class="stat-box"><p class="s-label">Absent</p><p class="s-value" id="absentCountStat">0</p></div>
+      <div class="stat-box"><p class="s-label">Attendance Rate</p><p class="s-value" id="attendanceRateStat">0%</p></div>
     </div>
     <table>
       <thead><tr><th>Student ID</th><th>Full Name</th><th>Course</th><th>Date</th><th>Time In</th><th>Status</th></tr></thead>

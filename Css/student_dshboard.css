@@ -387,8 +387,9 @@ nav {
     z-index: 20;
     display: grid;
     place-items: center;
-    padding: 22px;
+    padding: 18px;
     background-color: rgba(15, 18, 95, 0.58);
+    overflow-y: auto;
 }
 
 .attendance-modal[hidden] {
@@ -396,7 +397,7 @@ nav {
 }
 
 .scanner-panel {
-    width: min(720px, 100%);
+    width: min(1080px, 100%);
     background-color: var(--white);
     border: 1px solid var(--border);
     border-radius: 18px;
@@ -439,10 +440,13 @@ nav {
 .camera-frame {
     position: relative;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
+    min-height: min(68vh, 620px);
+    max-height: 72vh;
     overflow: hidden;
     border-radius: 14px;
-    background-color: #101336;
+    background-color: #050716;
+    border: 3px solid #29346f;
 }
 
 .camera-frame video,
@@ -454,11 +458,23 @@ nav {
 }
 
 .camera-frame video {
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .camera-frame canvas {
     pointer-events: none;
+}
+
+.camera-frame.is-tracking {
+    border-color: #16a34a;
+}
+
+.camera-frame.is-waiting {
+    border-color: #f59e0b;
+}
+
+.camera-frame.is-missing {
+    border-color: #ef4444;
 }
 
 .scan-status {
@@ -546,6 +562,12 @@ nav {
 
     .scanner-panel {
         padding: 16px;
+    }
+
+    .camera-frame {
+        aspect-ratio: 4 / 3;
+        min-height: 360px;
+        max-height: 62vh;
     }
 
 }

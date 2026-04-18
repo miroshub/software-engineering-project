@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 app.add_middleware(
@@ -30,6 +30,8 @@ MODEL_PATH.mkdir(exist_ok=True)
 FACE_SIZE = (160, 160)
 REGISTER_TARGET = 1
 RECOGNITION_THRESHOLD = 58
+VERIFY_SCORE_THRESHOLD = 0.7
+FACE_DETECTION_STABILITY_THRESHOLD = 0.7
 INVALID_NAME_CHARS = '<>:"/\\|?*'
 
 face_cascade = cv2.CascadeClassifier(
@@ -49,11 +51,13 @@ class RegisterFaceRequest(BaseModel):
 
 class VerifyFaceRequest(BaseModel):
     studentId: str
-    imageData: str
+    imageData: str | None = None
+    imageDataList: list[str] = Field(default_factory=list)
 
 
 class DetectFaceRequest(BaseModel):
     imageData: str
+    allowFallback: bool = False
 
 
 def normalize_name(raw_name: str) -> str:
@@ -75,23 +79,39 @@ def is_usable_face(face: np.ndarray | None) -> bool:
         return False
 
     height, width = face.shape[:2]
-    if min(height, width) < 80:
+    if min(height, width) < 55:
         return False
 
     brightness = float(face.mean())
     sharpness = cv2.Laplacian(face, cv2.CV_64F).var()
-    return 40 <= brightness <= 220 and sharpness >= 35
+    return 25 <= brightness <= 235 and sharpness >= 12
 
 
 def detect_faces(gray: np.ndarray) -> list[tuple[int, int, int, int]]:
-    reduced = cv2.resize(gray, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_LINEAR)
+    equalized = cv2.equalizeHist(gray)
+    reduced = cv2.resize(equalized, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_LINEAR)
     detections = face_cascade.detectMultiScale(
         reduced,
-        scaleFactor=1.2,
-        minNeighbors=5,
-        minSize=(60, 60),
+        scaleFactor=1.1,
+        minNeighbors=4,
+        minSize=(35, 35),
     )
+    if len(detections) == 0:
+        detections = face_cascade.detectMultiScale(
+            reduced,
+            scaleFactor=1.05,
+            minNeighbors=3,
+            minSize=(28, 28),
+        )
     return [(x * 2, y * 2, w * 2, h * 2) for (x, y, w, h) in detections]
+
+
+def center_face_box(gray: np.ndarray) -> tuple[int, int, int, int]:
+    height, width = gray.shape[:2]
+    box_size = int(min(width, height) * 0.62)
+    x = max(0, (width - box_size) // 2)
+    y = max(0, (height - box_size) // 2)
+    return x, y, box_size, box_size
 
 
 def serialize_face_box(face_box: tuple[int, int, int, int]) -> dict[str, int]:
@@ -100,6 +120,9 @@ def serialize_face_box(face_box: tuple[int, int, int, int]) -> dict[str, int]:
 
 
 def decode_image(data_url: str) -> np.ndarray | None:
+    if not data_url:
+        return None
+
     encoded = data_url.split(",", 1)[-1]
 
     try:
@@ -185,6 +208,60 @@ def recognize_face(processed_face: np.ndarray) -> tuple[str | None, float | None
     return label_map.get(int(label_id)), float(confidence)
 
 
+def lbph_distance_to_score(distance: float) -> float:
+    # LBPH returns a distance where lower means better. Convert it to 0..1.
+    max_distance = RECOGNITION_THRESHOLD / (1 - VERIFY_SCORE_THRESHOLD)
+    score = 1 - (distance / max_distance)
+    return max(0.0, min(1.0, score))
+
+
+def get_verification_images(payload: VerifyFaceRequest) -> list[str]:
+    images = [image for image in payload.imageDataList if image]
+    if not images and payload.imageData:
+        images.append(payload.imageData)
+    return images
+
+
+def extract_verification_face(image_data: str, allow_fallback: bool = False) -> dict:
+    frame = decode_image(image_data)
+    if frame is None:
+        return {"decoded": False, "detected": False, "usable": False}
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detect_faces(gray)
+    if not faces:
+        if not allow_fallback:
+            return {"decoded": True, "detected": False, "usable": False}
+
+        x, y, w, h = center_face_box(gray)
+        raw_face = gray[y : y + h, x : x + w]
+        processed_face = preprocess_face(raw_face)
+        usable = processed_face is not None and is_usable_face(raw_face)
+
+        return {
+            "decoded": True,
+            "detected": usable,
+            "usable": usable,
+            "fallback": True,
+            "processed_face": processed_face if usable else None,
+            "box": serialize_face_box((x, y, w, h)),
+        }
+
+    x, y, w, h = max(faces, key=lambda face: face[2] * face[3])
+    raw_face = gray[y : y + h, x : x + w]
+    processed_face = preprocess_face(raw_face)
+    usable = processed_face is not None and is_usable_face(raw_face)
+
+    return {
+        "decoded": True,
+        "detected": True,
+        "usable": usable,
+        "fallback": False,
+        "processed_face": processed_face if usable else None,
+        "box": serialize_face_box((x, y, w, h)),
+    }
+
+
 load_model()
 
 
@@ -239,73 +316,137 @@ def verify_face(payload: VerifyFaceRequest):
     if not expected_student_id:
         return {"ok": False, "match": False, "message": "Enter a valid student ID first."}
 
-    frame = decode_image(payload.imageData)
-    if frame is None:
-        return {"ok": False, "match": False, "message": "Could not read the captured image."}
+    images = get_verification_images(payload)
+    if not images:
+        return {"ok": False, "match": False, "confidence": 0, "message": "No face images were received."}
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = detect_faces(gray)
-    if not faces:
+    sample_results = [extract_verification_face(image_data) for image_data in images]
+    decoded_count = sum(1 for result in sample_results if result["decoded"])
+    detected_count = sum(1 for result in sample_results if result["detected"])
+    usable_results = [result for result in sample_results if result["usable"]]
+    total_samples = len(images)
+    detection_rate = detected_count / total_samples
+
+    if decoded_count == 0:
+        return {"ok": False, "match": False, "confidence": 0, "message": "Could not read the captured images."}
+
+    if detected_count == 0:
         return {
             "ok": False,
             "match": False,
+            "confidence": 0,
             "faceDetected": False,
+            "samples": {"total": total_samples, "detected": 0, "usable": 0},
             "message": "No face detected. Keep your face inside the frame and try again.",
         }
 
-    x, y, w, h = max(faces, key=lambda face: face[2] * face[3])
-    raw_face = gray[y : y + h, x : x + w]
-    processed_face = preprocess_face(raw_face)
-    face_box = serialize_face_box((x, y, w, h))
-
-    if processed_face is None or not is_usable_face(raw_face):
+    if total_samples > 1 and detection_rate < FACE_DETECTION_STABILITY_THRESHOLD:
+        required_count = int(total_samples * FACE_DETECTION_STABILITY_THRESHOLD + 0.999)
         return {
             "ok": False,
             "match": False,
+            "confidence": round(detection_rate, 3),
             "faceDetected": True,
-            "box": face_box,
-            "message": "Hold still and keep your face clear in the frame.",
+            "box": next((result.get("box") for result in sample_results if result.get("box")), None),
+            "samples": {"total": total_samples, "detected": detected_count, "usable": len(usable_results)},
+            "message": f"Hold still. Face was detected in {detected_count}/{total_samples} frames; at least {required_count} are needed.",
         }
 
-    matched_student_id, confidence = recognize_face(processed_face)
-    if not matched_student_id or confidence is None:
+    if not usable_results:
         return {
             "ok": False,
             "match": False,
+            "confidence": 0,
             "faceDetected": True,
-            "box": face_box,
+            "box": next((result.get("box") for result in sample_results if result.get("box")), None),
+            "samples": {"total": total_samples, "detected": detected_count, "usable": 0},
+            "message": "Face was detected, but the frames were blurry or poorly lit.",
+        }
+
+    predictions = []
+    for result in usable_results:
+        matched_student_id, distance = recognize_face(result["processed_face"])
+        if not matched_student_id or distance is None:
+            continue
+
+        predictions.append(
+            {
+                "student_id": matched_student_id,
+                "distance": distance,
+                "score": lbph_distance_to_score(distance),
+                "box": result.get("box"),
+            }
+        )
+
+    if not predictions:
+        return {
+            "ok": False,
+            "match": False,
+            "confidence": 0,
+            "faceDetected": True,
+            "box": usable_results[0].get("box"),
+            "samples": {"total": total_samples, "detected": detected_count, "usable": len(usable_results), "matched": 0},
             "message": "No trained face data was available for verification.",
         }
 
-    if confidence > RECOGNITION_THRESHOLD:
+    expected_predictions = [
+        prediction
+        for prediction in predictions
+        if normalize_name(prediction["student_id"]) == expected_student_id
+    ]
+
+    if not expected_predictions:
+        best_prediction = max(predictions, key=lambda prediction: prediction["score"])
         return {
             "ok": False,
             "match": False,
+            "confidence": round(best_prediction["score"], 3),
             "faceDetected": True,
-            "box": face_box,
-            "message": "Face was detected, but it could not be confidently verified.",
-            "confidence": round(confidence, 2),
+            "box": best_prediction.get("box"),
+            "detectedStudentId": best_prediction["student_id"],
+            "samples": {"total": total_samples, "detected": detected_count, "usable": len(usable_results), "matched": 0},
+            "message": "The detected face does not match the logged-in student.",
         }
 
-    if normalize_name(matched_student_id) != expected_student_id:
+    match_rate = len(expected_predictions) / len(predictions)
+    average_score = sum(prediction["score"] for prediction in expected_predictions) / len(expected_predictions)
+    average_distance = sum(prediction["distance"] for prediction in expected_predictions) / len(expected_predictions)
+    best_expected = max(expected_predictions, key=lambda prediction: prediction["score"])
+    is_match = average_score >= VERIFY_SCORE_THRESHOLD and match_rate >= FACE_DETECTION_STABILITY_THRESHOLD
+
+    if not is_match:
         return {
             "ok": False,
             "match": False,
+            "confidence": round(average_score, 3),
             "faceDetected": True,
-            "box": face_box,
-            "message": "The detected face does not match the logged-in student.",
-            "detectedStudentId": matched_student_id,
-            "confidence": round(confidence, 2),
+            "box": best_expected.get("box"),
+            "studentId": best_expected["student_id"],
+            "distance": round(average_distance, 2),
+            "samples": {
+                "total": total_samples,
+                "detected": detected_count,
+                "usable": len(usable_results),
+                "matched": len(expected_predictions),
+            },
+            "message": "Face was detected, but verification confidence was too low. Please try again.",
         }
 
     return {
         "ok": True,
         "match": True,
         "verified": True,
-        "studentId": matched_student_id,
-        "confidence": round(confidence, 2),
+        "studentId": best_expected["student_id"],
+        "confidence": round(average_score, 3),
+        "distance": round(average_distance, 2),
         "faceDetected": True,
-        "box": face_box,
+        "box": best_expected.get("box"),
+        "samples": {
+            "total": total_samples,
+            "detected": detected_count,
+            "usable": len(usable_results),
+            "matched": len(expected_predictions),
+        },
         "message": "Face verified successfully.",
     }
 
@@ -319,6 +460,20 @@ def detect_face(payload: DetectFaceRequest):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = detect_faces(gray)
     if not faces:
+        if payload.allowFallback:
+            x, y, w, h = center_face_box(gray)
+            raw_face = gray[y : y + h, x : x + w]
+            processed_face = preprocess_face(raw_face)
+            usable = processed_face is not None and is_usable_face(raw_face)
+            return {
+                "ok": True,
+                "detected": usable,
+                "usable": usable,
+                "fallback": True,
+                "box": serialize_face_box((x, y, w, h)),
+                "message": "Using centered face area." if usable else "Center your face in the guide.",
+            }
+
         return {
             "ok": True,
             "detected": False,

@@ -22,6 +22,10 @@ const ACTIVE_SESSION_COLLECTION = 'sessions';
 const ATTENDANCE_COLLECTION = 'attendance';
 const ATTENDANCE_SESSION_COLLECTION_CANDIDATES = ['sessions', 'Attendance_Session', 'Attendance_session', 'AttendanceSession'];
 const ATTENDANCE_RECORD_COLLECTION_CANDIDATES = ['attendance', 'Attendance_Record', 'Attendance_record', 'AttendanceRecord', 'reports'];
+const VERIFY_SAMPLE_COUNT = 20;
+const VERIFY_SAMPLE_INTERVAL_MS = 220;
+const FACE_STABILITY_THRESHOLD = 0.7;
+const VERIFY_CONFIDENCE_THRESHOLD = 0.7;
 
 const studentNameEl = document.getElementById('studentName');
 const studentMajorEl = document.getElementById('studentMajor');
@@ -41,6 +45,7 @@ const closeScannerBtn = document.getElementById('closeScannerBtn');
 const scanStatusEl = document.getElementById('scanStatus');
 const scannerTitleEl = document.getElementById('scannerTitle');
 const scannerCountdownEl = document.getElementById('scannerCountdown');
+const cameraFrameEl = document.querySelector('.camera-frame');
 
 let studentProfile = null;
 let enrollmentRows = [];
@@ -51,6 +56,7 @@ let scannerStream = null;
 let selectedSession = null;
 let countdownTimer = null;
 let activeSessionUnsubscribe = null;
+let scanInProgress = false;
 
 function normalizeText(value) {
   if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -499,22 +505,100 @@ function clearFaceOverlay() {
   context.clearRect(0, 0, faceOverlay.width, faceOverlay.height);
 }
 
-function drawFaceBox(box) {
-  if (!faceOverlay || !attendanceVideo || !box) return;
-  const width = attendanceVideo.videoWidth || 640;
-  const height = attendanceVideo.videoHeight || 480;
-  faceOverlay.width = width;
-  faceOverlay.height = height;
+function setTrackingState(state) {
+  if (!cameraFrameEl) return;
+  cameraFrameEl.classList.toggle('is-tracking', state === 'tracking');
+  cameraFrameEl.classList.toggle('is-waiting', state === 'waiting');
+  cameraFrameEl.classList.toggle('is-missing', state === 'missing');
+}
+
+function prepareOverlayCanvas() {
+  if (!faceOverlay || !cameraFrameEl) return null;
+  const width = cameraFrameEl.clientWidth || 640;
+  const height = cameraFrameEl.clientHeight || 480;
+  const ratio = window.devicePixelRatio || 1;
+  faceOverlay.width = Math.round(width * ratio);
+  faceOverlay.height = Math.round(height * ratio);
+  faceOverlay.style.width = `${width}px`;
+  faceOverlay.style.height = `${height}px`;
 
   const context = faceOverlay.getContext('2d');
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, width, height);
-  context.strokeStyle = '#16a34a';
+  return { context, width, height };
+}
+
+function getDisplayedVideoRect(frameWidth, frameHeight) {
+  const videoWidth = attendanceVideo?.videoWidth || 640;
+  const videoHeight = attendanceVideo?.videoHeight || 480;
+  const scale = Math.min(frameWidth / videoWidth, frameHeight / videoHeight);
+  const width = videoWidth * scale;
+  const height = videoHeight * scale;
+  return {
+    x: (frameWidth - width) / 2,
+    y: (frameHeight - height) / 2,
+    width,
+    height,
+    scale
+  };
+}
+
+function drawOverlayLabel(context, label, x, y, color) {
+  if (!label) return;
+  context.font = '700 18px Segoe UI, Arial, sans-serif';
+  context.textBaseline = 'top';
+  const metrics = context.measureText(label);
+  const labelX = Math.max(10, x);
+  const labelY = Math.max(10, y - 34);
+  context.fillStyle = color;
+  context.fillRect(labelX, labelY, metrics.width + 18, 28);
+  context.fillStyle = '#ffffff';
+  context.fillText(label, labelX + 9, labelY + 5);
+}
+
+function drawScannerGuide(color = '#f59e0b', label = 'Center your face') {
+  const overlay = prepareOverlayCanvas();
+  if (!overlay) return;
+  const { context, width, height } = overlay;
+  const guideWidth = Math.min(width * 0.46, 360);
+  const guideHeight = Math.min(height * 0.68, 430);
+  const x = (width - guideWidth) / 2;
+  const y = (height - guideHeight) / 2;
+
+  context.strokeStyle = color;
   context.lineWidth = 5;
-  context.strokeRect(Number(box.x) || 0, Number(box.y) || 0, Number(box.w) || 0, Number(box.h) || 0);
+  context.setLineDash([14, 10]);
+  context.strokeRect(x, y, guideWidth, guideHeight);
+  context.setLineDash([]);
+  drawOverlayLabel(context, label, x, y, color);
+}
+
+function drawFaceBox(box, color = '#16a34a', label = 'Face in frame') {
+  if (!faceOverlay || !attendanceVideo || !box) return;
+  const overlay = prepareOverlayCanvas();
+  if (!overlay) return;
+
+  const { context, width, height } = overlay;
+  const videoRect = getDisplayedVideoRect(width, height);
+  const x = videoRect.x + (Number(box.x) || 0) * videoRect.scale;
+  const y = videoRect.y + (Number(box.y) || 0) * videoRect.scale;
+  const boxWidth = (Number(box.w) || 0) * videoRect.scale;
+  const boxHeight = (Number(box.h) || 0) * videoRect.scale;
+
+  context.strokeStyle = color;
+  context.lineWidth = 6;
+  context.strokeRect(x, y, boxWidth, boxHeight);
+  drawOverlayLabel(context, label, x, y, color);
 }
 
 function setScanStatus(message) {
   if (scanStatusEl) scanStatusEl.textContent = message;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function updateScannerCountdown() {
@@ -547,7 +631,11 @@ async function startAttendanceCamera() {
   }
 
   scannerStream = await navigator.mediaDevices.getUserMedia({
-    video: { width: 640, height: 480, facingMode: 'user' },
+    video: {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      facingMode: 'user'
+    },
     audio: false
   });
 
@@ -559,7 +647,8 @@ async function startAttendanceCamera() {
   }
 
   await attendanceVideo.play();
-  clearFaceOverlay();
+  setTrackingState('waiting');
+  drawScannerGuide('#f59e0b', 'Center your face');
   return scannerStream;
 }
 
@@ -571,15 +660,18 @@ function stopAttendanceCamera() {
   scannerStream = null;
   if (attendanceVideo) attendanceVideo.srcObject = null;
   clearFaceOverlay();
+  setTrackingState('');
 }
 
 function closeAttendanceScanner() {
+  scanInProgress = false;
   stopAttendanceCamera();
   selectedSession = null;
   if (countdownTimer) window.clearInterval(countdownTimer);
   countdownTimer = null;
   if (attendanceModal) attendanceModal.hidden = true;
   if (scanFaceBtn) scanFaceBtn.disabled = false;
+  if (scanFaceBtn) scanFaceBtn.textContent = 'Scan Face';
 }
 
 async function openAttendanceScanner(session) {
@@ -626,7 +718,7 @@ function captureAttendanceFrame() {
   attendanceCanvas.height = height;
   context.drawImage(attendanceVideo, 0, 0, width, height);
 
-  return attendanceCanvas.toDataURL('image/jpeg', 0.92);
+  return attendanceCanvas.toDataURL('image/jpeg', 0.82);
 }
 
 async function postJson(path, payload) {
@@ -638,6 +730,78 @@ async function postJson(path, payload) {
   const data = await response.json().catch(() => ({ ok: false, match: false, message: 'Invalid server response.' }));
   if (!response.ok) throw new Error(data.message || 'Request failed.');
   return data;
+}
+
+async function detectFaceInFrame(imageData) {
+  try {
+    const result = await postJson('/detect-face', { imageData });
+    if (result.box && result.usable) {
+      setTrackingState('tracking');
+      drawFaceBox(result.box, '#16a34a', 'Face in frame');
+    } else if (result.box) {
+      setTrackingState('waiting');
+      drawFaceBox(result.box, '#f59e0b', 'Hold still');
+    } else {
+      setTrackingState('missing');
+      drawScannerGuide('#ef4444', 'Move into frame');
+    }
+    return {
+      detected: Boolean(result.detected),
+      usable: Boolean(result.usable),
+      box: result.box || null
+    };
+  } catch {
+    setTrackingState('missing');
+    clearFaceOverlay();
+    drawScannerGuide('#ef4444', 'Tracking lost');
+    return { detected: false, usable: false, box: null };
+  }
+}
+
+async function captureStableFaceSamples(sessionForScan) {
+  const samples = [];
+  let detectedCount = 0;
+  let usableCount = 0;
+
+  for (let index = 0; index < VERIFY_SAMPLE_COUNT; index += 1) {
+    if (!scannerStream || selectedSession !== sessionForScan) {
+      throw new Error('Scanning was cancelled.');
+    }
+
+    // Capture one frame, then ask the backend if a usable face is visible.
+    const imageData = captureAttendanceFrame();
+    const detection = await detectFaceInFrame(imageData);
+    samples.push(imageData);
+
+    if (detection.detected) detectedCount += 1;
+    if (detection.usable) usableCount += 1;
+
+    const scanned = index + 1;
+    const percent = Math.round((scanned / VERIFY_SAMPLE_COUNT) * 100);
+    if (scanFaceBtn) scanFaceBtn.textContent = `Taking ${scanned}/${VERIFY_SAMPLE_COUNT}`;
+    setScanStatus(`Scanning... ${percent}%. Face detected in ${detectedCount}/${scanned} samples.`);
+
+    if (index < VERIFY_SAMPLE_COUNT - 1) {
+      await wait(VERIFY_SAMPLE_INTERVAL_MS);
+    }
+  }
+
+  const detectionRate = detectedCount / VERIFY_SAMPLE_COUNT;
+  if (detectionRate < FACE_STABILITY_THRESHOLD) {
+    const needed = Math.ceil(VERIFY_SAMPLE_COUNT * FACE_STABILITY_THRESHOLD);
+    throw new Error(`Hold still and keep your face visible. Detected ${detectedCount}/${VERIFY_SAMPLE_COUNT}; need at least ${needed}.`);
+  }
+
+  if (!usableCount) {
+    throw new Error('Face was detected, but the frames were too blurry or poorly lit. Try again.');
+  }
+
+  return {
+    samples,
+    detectedCount,
+    usableCount,
+    detectionRate
+  };
 }
 
 async function recordAttendance(session, verification) {
@@ -696,7 +860,7 @@ async function recordAttendance(session, verification) {
 }
 
 async function handleScanFace() {
-  if (!selectedSession || scanFaceBtn?.disabled) return;
+  if (!selectedSession || scanFaceBtn?.disabled || scanInProgress) return;
 
   if (!isSessionJoinable(selectedSession)) {
     setScanStatus('This session is no longer active.');
@@ -711,30 +875,49 @@ async function handleScanFace() {
     return;
   }
 
+  const sessionForScan = selectedSession;
+  scanInProgress = true;
   scanFaceBtn.disabled = true;
+  scanFaceBtn.textContent = 'Scanning...';
   setScanStatus('Scanning face...');
 
   try {
-    const imageData = captureAttendanceFrame();
+    const sampleResult = await captureStableFaceSamples(sessionForScan);
+    if (selectedSession !== sessionForScan) return;
+
+    setScanStatus(`Verifying ${sampleResult.samples.length} samples...`);
+    scanFaceBtn.textContent = 'Verifying...';
+
     const result = await postJson('/verify-face', {
       studentId: studentProfile.studentId,
-      imageData
+      imageDataList: sampleResult.samples
     });
 
     drawFaceBox(result.box);
 
-    if (!result.match) {
-      throw new Error(result.message || 'Face was detected, but it did not match this student.');
+    const confidence = Number(result.confidence || 0);
+    if (!result.match || confidence < VERIFY_CONFIDENCE_THRESHOLD) {
+      const shownConfidence = Math.round(confidence * 100);
+      throw new Error(result.message || `Verification confidence was ${shownConfidence}%. Please try again.`);
     }
 
-    const saved = await recordAttendance(selectedSession, result);
+    const saved = await recordAttendance(sessionForScan, result);
     if (saved) {
       setPageStatus(`Attendance recorded successfully for ${studentProfile.fullName}.`, 'success');
     }
     closeAttendanceScanner();
   } catch (error) {
-    setScanStatus(error?.message || 'Face verification failed.');
-    scanFaceBtn.disabled = false;
+    if (selectedSession === sessionForScan) {
+      setScanStatus(error?.message || 'Face verification failed. Please try again.');
+      scanFaceBtn.disabled = false;
+      scanFaceBtn.textContent = 'Scan Face';
+    }
+  } finally {
+    scanInProgress = false;
+    if (selectedSession === sessionForScan && scanFaceBtn) {
+      scanFaceBtn.disabled = false;
+      scanFaceBtn.textContent = 'Scan Face';
+    }
   }
 }
 

@@ -60,6 +60,27 @@
         </main>
     </div>
 
+    <div id="attendanceModal" class="attendance-modal" hidden>
+        <div class="scanner-panel" role="dialog" aria-modal="true" aria-labelledby="scannerTitle">
+            <div class="scanner-header">
+                <div>
+                    <h2 id="scannerTitle">Join Session</h2>
+                    <p id="scannerCountdown">Waiting for camera...</p>
+                </div>
+                <button id="closeScannerBtn" class="icon-btn" type="button" aria-label="Close scanner">&times;</button>
+            </div>
+
+            <div class="camera-frame">
+                <video id="attendanceVideo" autoplay playsinline muted></video>
+                <canvas id="faceOverlay"></canvas>
+            </div>
+
+            <canvas id="attendanceCanvas" hidden></canvas>
+            <p id="scanStatus" class="scan-status">Camera is not open yet.</p>
+            <button id="scanFaceBtn" class="scan-btn" type="button">Scan Face</button>
+        </div>
+    </div>
+
     <script type="module" src="../Javascript/student_dashboard.js"></script>
 </body>
 </html>

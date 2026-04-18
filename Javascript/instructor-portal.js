@@ -1,914 +1,386 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc
-} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { collection, doc, getDocs, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './firebase-config.js';
-
 const GENERIC_SESSION_KEY = 'recogniseMeSession';
 const ROLE_SESSIONS_KEY = 'recogniseMeSessionsByRole';
-
-const USERS_COLLECTION_CANDIDATES = ['Users', 'users'];
-const STUDENT_COLLECTION_CANDIDATES = ['Student', 'student'];
-const COURSE_COLLECTION_CANDIDATES = ['Courses', 'Course', 'course', 'courses'];
-const ENROLLMENT_COLLECTION_CANDIDATES = ['Enrollment', 'enrollment'];
-const ATTENDANCE_SESSION_COLLECTION_CANDIDATES = ['Attendance_Session', 'Attendance_session', 'AttendanceSession', 'sessions'];
-const ATTENDANCE_RECORD_COLLECTION_CANDIDATES = ['Attendance_Record', 'Attendance_record', 'AttendanceRecord', 'reports'];
-
-const ATTENDANCE_SESSION_WRITE_COLLECTION = 'Attendance_Session';
-
-const STATUS_THEME = {
-  info: { background: '#f4f6fb', borderColor: '#dde2f0', color: '#334155' },
-  success: { background: '#e6f9f0', borderColor: '#1a8a5a', color: '#1a8a5a' },
-  warning: { background: '#fff8e1', borderColor: '#b07d00', color: '#8a6100' },
-  error: { background: '#fdecea', borderColor: '#c0392b', color: '#c0392b' }
-};
-
-const currentPage = document.body?.dataset?.page || '';
+const SESSION_WRITE_COLLECTION = 'sessions';
+const COLLECTIONS = { users: ['Users', 'users'], students: ['Student', 'student'], courses: ['Courses', 'Course', 'course', 'courses'], enrollments: ['Enrollment', 'enrollment'], sessions: ['sessions', 'Attendance_Session', 'Attendance_session', 'AttendanceSession'], records: ['attendance', 'Attendance_Record', 'Attendance_record', 'AttendanceRecord', 'reports'] };
+const STATUS_THEME = { info: ['#f4f6fb', '#dde2f0', '#334155'], success: ['#e6f9f0', '#1a8a5a', '#1a8a5a'], warning: ['#fff8e1', '#b07d00', '#8a6100'], error: ['#fdecea', '#c0392b', '#c0392b'] };
+const currentPage = document.body ? document.body.getAttribute('data-page') || '' : '';
 const pageStatusEl = document.getElementById('pageStatus');
-
-function normalizeText(value) {
+function byId(name) { return document.getElementById(name); }
+function text(value) {
+  if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
   return String(value || '').trim();
 }
-
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function normalizeFieldKey(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '');
-}
-
-function normalizeId(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function getFieldValue(data, aliases = []) {
-  const entries = Object.entries(data || {});
-
-  for (const alias of aliases) {
-    if (Object.hasOwn(data, alias)) {
-      const directValue = normalizeText(data[alias]);
-      if (directValue) return directValue;
-    }
+function lower(value) { return text(value).toLowerCase(); }
+function cleanKey(value) { return lower(value).replace(/[\s_-]+/g, ''); }
+function same(left, right) { return lower(left) !== '' && lower(left) === lower(right); }
+function hasOwn(data, key) { return Object.prototype.hasOwnProperty.call(data, key); }
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+function getValue(data, names) {
+  let i, item, value, entries, allowed = {};
+  data = data || {};
+  for (i = 0; i < names.length; i += 1) {
+    if (hasOwn(data, names[i])) { value = text(data[names[i]]); if (value) return value; }
+    allowed[cleanKey(names[i])] = true;
   }
-
-  const normalizedAliases = new Set(aliases.map(normalizeFieldKey));
-  for (const [key, value] of entries) {
-    if (!normalizedAliases.has(normalizeFieldKey(key))) continue;
-    const normalizedValue = normalizeText(value);
-    if (normalizedValue) return normalizedValue;
+  entries = Object.entries(data);
+  for (i = 0; i < entries.length; i += 1) {
+    item = entries[i]; value = text(item[1]);
+    if (allowed[cleanKey(item[0])] && value) return value;
   }
-
   return '';
 }
-
-function setPageStatus(message, tone = 'info') {
+function setText(idName, value) {
+  let el = byId(idName);
+  if (el) el.textContent = String(value);
+}
+function setPageStatus(message, tone) {
+  let theme;
   if (!pageStatusEl) return;
-
-  if (!message) {
-    pageStatusEl.style.display = 'none';
-    pageStatusEl.textContent = '';
-    return;
-  }
-
-  const theme = STATUS_THEME[tone] || STATUS_THEME.info;
+  if (!message) { pageStatusEl.style.display = 'none'; pageStatusEl.textContent = ''; return; }
+  theme = STATUS_THEME[tone] || STATUS_THEME.info;
   pageStatusEl.style.display = 'block';
-  pageStatusEl.style.background = theme.background;
-  pageStatusEl.style.borderColor = theme.borderColor;
-  pageStatusEl.style.color = theme.color;
+  pageStatusEl.style.background = theme[0];
+  pageStatusEl.style.borderColor = theme[1];
+  pageStatusEl.style.color = theme[2];
   pageStatusEl.textContent = message;
 }
-
 function readStoredSession(role) {
-  try {
-    const sessionsByRole = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}');
-    if (role && sessionsByRole[role]) return sessionsByRole[role];
-  } catch {
-    // Fall back to the generic session below.
-  }
-
-  try {
-    const genericSession = JSON.parse(localStorage.getItem(GENERIC_SESSION_KEY) || 'null');
-    if (!role) return genericSession;
-    return genericSession?.role === role ? genericSession : null;
-  } catch {
-    return null;
-  }
+  let sessions, session;
+  try { sessions = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}'); if (role && sessions[role]) return sessions[role]; } catch (error) {}
+  try { session = JSON.parse(localStorage.getItem(GENERIC_SESSION_KEY) || 'null'); if (!role || (session && session.role === role)) return session; } catch (error) {}
+  return null;
 }
-
 function clearStoredSession(role) {
-  try {
-    const sessionsByRole = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}');
-    if (role) delete sessionsByRole[role];
-    localStorage.setItem(ROLE_SESSIONS_KEY, JSON.stringify(sessionsByRole));
-  } catch {
-    localStorage.removeItem(ROLE_SESSIONS_KEY);
-  }
-
-  try {
-    const genericSession = JSON.parse(localStorage.getItem(GENERIC_SESSION_KEY) || 'null');
-    if (!genericSession || !role || genericSession.role === role) {
-      localStorage.removeItem(GENERIC_SESSION_KEY);
-    }
-  } catch {
-    localStorage.removeItem(GENERIC_SESSION_KEY);
-  }
+  let sessions, session;
+  try { sessions = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}'); if (role) delete sessions[role]; localStorage.setItem(ROLE_SESSIONS_KEY, JSON.stringify(sessions)); } catch (error) { localStorage.removeItem(ROLE_SESSIONS_KEY); }
+  try { session = JSON.parse(localStorage.getItem(GENERIC_SESSION_KEY) || 'null'); if (!session || !role || session.role === role) localStorage.removeItem(GENERIC_SESSION_KEY); } catch (error) { localStorage.removeItem(GENERIC_SESSION_KEY); }
 }
-
 function setActiveNavLink() {
-  const pageToHref = {
-    'instructor-dashboard': 'Instructor-Dashboard.html',
-    sessions: 'session.html',
-    attendance: 'attendance.html',
-    reports: 'report.html'
-  };
-
-  const activeHref = pageToHref[currentPage];
+  let links = document.querySelectorAll('.top-nav a');
+  let hrefs = { 'instructor-dashboard': 'Instructor-Dashboard.html', sessions: 'session.html', attendance: 'attendance.html', reports: 'report.html' };
+  let activeHref = hrefs[currentPage], i;
   if (!activeHref) return;
-
-  document.querySelectorAll('.top-nav a').forEach((link) => {
-    const href = normalizeText(link.getAttribute('href'));
-    link.classList.toggle('active', href === activeHref);
-  });
+  for (i = 0; i < links.length; i += 1) links[i].classList.toggle('active', text(links[i].getAttribute('href')) === activeHref);
 }
-
-async function readCollectionCandidates(collectionCandidates) {
-  let lastError = null;
-
-  for (const collectionName of collectionCandidates) {
-    try {
-      const snapshot = await getDocs(collection(db, collectionName));
-      if (snapshot.empty) continue;
-      return { collectionName, docs: snapshot.docs };
-    } catch (error) {
-      lastError = error;
-    }
+async function readCollection(names) {
+  let i, snap, lastError = null;
+  for (i = 0; i < names.length; i += 1) {
+    try { snap = await getDocs(collection(db, names[i])); if (!snap.empty) return snap.docs; } catch (error) { lastError = error; }
   }
-
   if (lastError) throw lastError;
-  return { collectionName: collectionCandidates[0], docs: [] };
+  return [];
+}
+function normalizeUser(snap) {
+  let data = snap.data() || {};
+  return { docId: snap.id, role: lower(getValue(data, ['role', 'user_role', 'userRole'])), email: lower(getValue(data, ['email', 'emailLower', 'email_lower'])), fullName: getValue(data, ['fullName', 'full_name', 'name']) || 'Instructor', instructorId: getValue(data, ['universityId', 'university_id', 'instructorId', 'instructor_id', 'studentId', 'student_id']) || snap.id, department: getValue(data, ['department']), raw: data };
+}
+function normalizeStudent(snap) {
+  let data = snap.data() || {};
+  let face = data.faceRegistered === true || data.face_registered === true || lower(data.faceRegistered) === 'true' || lower(data.face_registered) === 'true';
+  return { docId: snap.id, studentId: getValue(data, ['studentId', 'student_id', 'universityId', 'university_id']) || snap.id, email: lower(getValue(data, ['email', 'emailLower', 'email_lower'])), fullName: getValue(data, ['fullName', 'full_name', 'name']) || getValue(data, ['email']) || 'Student ' + snap.id, department: getValue(data, ['department']) || 'Computer Science', academicYear: getValue(data, ['academicYear', 'academic_year']), faceRegistered: face, raw: data };
 }
 
-function normalizeUser(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    role: normalizeText(getFieldValue(data, ['role', 'user_role', 'userRole'])).toLowerCase(),
-    email: normalizeEmail(getFieldValue(data, ['email', 'emailLower', 'email_lower'])),
-    fullName: getFieldValue(data, ['fullName', 'full_name', 'name']) || 'Instructor',
-    instructorId: getFieldValue(data, ['universityId', 'university_id', 'instructorId', 'instructor_id', 'studentId', 'student_id']) || snapshot.id,
-    department: getFieldValue(data, ['department']),
-    raw: data
-  };
+function normalizeCourse(snap) {
+  let data = snap.data() || {};
+  let name = getValue(data, ['course_name', 'courseName', 'course name', 'name', 'title']);
+  return { docId: snap.id, courseId: getValue(data, ['course_id', 'courseId', 'id']) || snap.id, courseCode: getValue(data, ['course_code', 'courseCode', 'code']) || name || snap.id, courseName: name || snap.id, semester: getValue(data, ['semester']), academicYear: getValue(data, ['academic_year', 'academicYear', 'academic year']), creditHours: getValue(data, ['credit_hours', 'creditHours', 'credit hours']) };
 }
 
-function normalizeStudent(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    studentId: getFieldValue(data, ['studentId', 'student_id', 'universityId', 'university_id']) || snapshot.id,
-    email: normalizeEmail(getFieldValue(data, ['email', 'emailLower', 'email_lower'])),
-    fullName: getFieldValue(data, ['fullName', 'full_name', 'name']) || getFieldValue(data, ['email']) || `Student ${snapshot.id}`,
-    department: getFieldValue(data, ['department']) || 'Computer Science',
-    academicYear: getFieldValue(data, ['academicYear', 'academic_year']) || '',
-    faceRegistered: String(data.faceRegistered ?? data.face_registered ?? '').toLowerCase() === 'true' || data.faceRegistered === true || data.face_registered === true,
-    raw: data
-  };
+function normalizeEnrollment(snap) {
+  let data = snap.data() || {};
+  return { docId: snap.id, studentId: getValue(data, ['student_id', 'studentId']), studentEmail: lower(getValue(data, ['student_email', 'studentEmail', 'email'])), courseId: getValue(data, ['course_id', 'courseId']), courseDocId: getValue(data, ['course_doc_id', 'courseDocId']), courseCode: getValue(data, ['course_code', 'courseCode']), courseName: getValue(data, ['course_name', 'courseName']), academicYear: getValue(data, ['academic_year', 'academicYear']), department: getValue(data, ['department']) };
 }
 
-function normalizeCourse(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    courseId: getFieldValue(data, ['course_id', 'courseId', 'id']) || snapshot.id,
-    courseCode: getFieldValue(data, ['course_code', 'courseCode', 'code']) || getFieldValue(data, ['name', 'course_name', 'courseName']) || snapshot.id,
-    courseName: getFieldValue(data, ['course_name', 'courseName', 'course name', 'name', 'title']) || snapshot.id,
-    semester: getFieldValue(data, ['semester']),
-    academicYear: getFieldValue(data, ['academic_year', 'academicYear', 'academic year']),
-    creditHours: getFieldValue(data, ['credit_hours', 'creditHours', 'credit hours'])
-  };
+function normalizeSession(snap) {
+  let data = snap.data() || {};
+  return { docId: snap.id, collectionName: snap.ref && snap.ref.parent ? snap.ref.parent.id : '', sessionId: getValue(data, ['session_id', 'sessionId']) || snap.id, courseId: getValue(data, ['course_id', 'courseId']), courseName: getValue(data, ['course_name', 'courseName']), courseCode: getValue(data, ['course_code', 'courseCode']), instructorId: getValue(data, ['instructor_id', 'instructorId']), instructorName: getValue(data, ['instructor_name', 'instructorName']), classroom: getValue(data, ['classroom', 'location', 'room']), sessionDate: getValue(data, ['session_date', 'sessionDate', 'date']), startTime: getValue(data, ['start_time', 'startTime']), endTime: getValue(data, ['end_time', 'endTime']), sessionStatus: getValue(data, ['session_status', 'sessionStatus', 'status']) || 'Scheduled', notes: getValue(data, ['notes']), createdAt: getValue(data, ['created_at', 'createdAt']), raw: data };
 }
 
-function normalizeEnrollment(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    studentId: getFieldValue(data, ['student_id', 'studentId']),
-    studentEmail: normalizeEmail(getFieldValue(data, ['student_email', 'studentEmail', 'email'])),
-    courseId: getFieldValue(data, ['course_id', 'courseId']),
-    courseDocId: getFieldValue(data, ['course_doc_id', 'courseDocId']),
-    courseCode: getFieldValue(data, ['course_code', 'courseCode']),
-    courseName: getFieldValue(data, ['course_name', 'courseName']),
-    academicYear: getFieldValue(data, ['academic_year', 'academicYear']),
-    department: getFieldValue(data, ['department'])
-  };
+function normalizeRecord(snap) {
+  let data = snap.data() || {};
+  return { docId: snap.id, recordId: getValue(data, ['record_id', 'recordId']) || snap.id, sessionId: getValue(data, ['session_id', 'sessionId']), studentId: getValue(data, ['student_id', 'studentId']), studentName: getValue(data, ['student_name', 'studentName', 'fullName', 'full_name', 'name']), courseId: getValue(data, ['course_id', 'courseId']), courseName: getValue(data, ['course_name', 'courseName']), markedAt: getValue(data, ['marked_at', 'markedAt', 'timeIn']), attendanceStatus: getValue(data, ['attendance_status', 'attendanceStatus', 'status']) || 'Present', attendanceResult: getValue(data, ['attendance_result', 'attendanceResult', 'verification']) || 'Verified', instructorId: getValue(data, ['instructor_id', 'instructorId']), sessionDate: getValue(data, ['session_date', 'sessionDate', 'date']), raw: data };
 }
 
-function normalizeAttendanceSession(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    sessionId: getFieldValue(data, ['session_id', 'sessionId']) || snapshot.id,
-    courseId: getFieldValue(data, ['course_id', 'courseId']),
-    courseName: getFieldValue(data, ['course_name', 'courseName']),
-    courseCode: getFieldValue(data, ['course_code', 'courseCode']),
-    instructorId: getFieldValue(data, ['instructor_id', 'instructorId']),
-    instructorName: getFieldValue(data, ['instructor_name', 'instructorName']),
-    classroom: getFieldValue(data, ['classroom', 'location', 'room']),
-    sessionDate: getFieldValue(data, ['session_date', 'sessionDate', 'date']),
-    startTime: getFieldValue(data, ['start_time', 'startTime']),
-    endTime: getFieldValue(data, ['end_time', 'endTime']),
-    sessionStatus: getFieldValue(data, ['session_status', 'sessionStatus', 'status']) || 'Scheduled',
-    notes: getFieldValue(data, ['notes']),
-    createdAt: getFieldValue(data, ['created_at', 'createdAt']),
-    raw: data
-  };
-}
-
-function normalizeAttendanceRecord(snapshot) {
-  const data = snapshot.data() || {};
-  return {
-    docId: snapshot.id,
-    recordId: getFieldValue(data, ['record_id', 'recordId']) || snapshot.id,
-    sessionId: getFieldValue(data, ['session_id', 'sessionId']),
-    studentId: getFieldValue(data, ['student_id', 'studentId']),
-    studentName: getFieldValue(data, ['student_name', 'studentName', 'fullName', 'full_name', 'name']),
-    courseId: getFieldValue(data, ['course_id', 'courseId']),
-    courseName: getFieldValue(data, ['course_name', 'courseName']),
-    markedAt: getFieldValue(data, ['marked_at', 'markedAt', 'timeIn']),
-    attendanceStatus: getFieldValue(data, ['attendance_status', 'attendanceStatus', 'status']) || 'Present',
-    attendanceResult: getFieldValue(data, ['attendance_result', 'attendanceResult', 'verification']) || 'Verified',
-    instructorId: getFieldValue(data, ['instructor_id', 'instructorId']),
-    sessionDate: getFieldValue(data, ['session_date', 'sessionDate', 'date']),
-    raw: data
-  };
-}
-
-function getCourseLookupKeys(course) {
-  return [normalizeId(course.courseId), normalizeId(course.docId)].filter(Boolean);
-}
-
-function buildCourseMap(courses) {
-  const courseMap = new Map();
-  courses.forEach((course) => {
-    getCourseLookupKeys(course).forEach((key) => courseMap.set(key, course));
-  });
-  return courseMap;
-}
-
-function buildStudentMap(students) {
-  const studentMap = new Map();
-  students.forEach((student) => {
-    const keys = [normalizeId(student.studentId), normalizeId(student.docId), normalizeId(student.email)].filter(Boolean);
-    keys.forEach((key) => studentMap.set(key, student));
-  });
-  return studentMap;
-}
-
-function parseDateTime(sessionDate, sessionTime) {
-  const date = normalizeText(sessionDate);
-  const time = normalizeText(sessionTime);
-  if (!date) return null;
-  const composite = `${date}T${time || '00:00'}:00`;
-  const parsed = new Date(composite);
+function parseDateTime(dateValue, timeValue) {
+  let parsed, dateText = text(dateValue), timeText = text(timeValue), timePart;
+  if (timeText && (timeText.indexOf('T') >= 0 || /^\d{4}-\d{2}-\d{2}/.test(timeText))) {
+    parsed = new Date(timeText);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  if (!dateText) return null;
+  timePart = timeText || '00:00';
+  if (/^\d{2}:\d{2}$/.test(timePart)) timePart += ':00';
+  parsed = new Date(dateText + 'T' + timePart);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getDisplaySessionStatus(session) {
-  const now = new Date();
-  const start = parseDateTime(session.sessionDate, session.startTime);
-  const end = parseDateTime(session.sessionDate, session.endTime);
-  const stored = normalizeText(session.sessionStatus).toLowerCase();
-
-  if (stored === 'cancelled') return 'Cancelled';
-  if (!start || !end) return normalizeText(session.sessionStatus) || 'Scheduled';
-  if (now < start) return 'Scheduled';
-  if (now >= start && now <= end) return 'Open';
-  return 'Closed';
+function formatDate(value) {
+  let date = parseDateTime(value, '00:00');
+  return date ? date.toLocaleDateString() : text(value) || '--';
 }
 
-function getStatusBadge(status) {
-  const normalized = normalizeText(status).toLowerCase();
-
-  if (normalized === 'open' || normalized === 'present') {
-    return `<span class="badge badge-green">${status}</span>`;
-  }
-
-  if (normalized === 'scheduled' || normalized === 'verified' || normalized === 'good') {
-    return `<span class="badge badge-blue">${status}</span>`;
-  }
-
-  if (normalized === 'late' || normalized === 'pending') {
-    return `<span class="badge badge-yellow">${status}</span>`;
-  }
-
-  return `<span class="badge badge-red">${status}</span>`;
-}
-
-function formatDate(dateValue) {
-  const parsed = parseDateTime(dateValue, '00:00');
-  if (!parsed) return normalizeText(dateValue) || '--';
-  return parsed.toLocaleDateString();
-}
-
-function formatDateTime(dateValue) {
-  const parsed = new Date(dateValue);
-  if (Number.isNaN(parsed.getTime())) return normalizeText(dateValue) || '--';
-  return parsed.toLocaleString();
+function formatDateTime(value) {
+  let date = new Date(value);
+  return Number.isNaN(date.getTime()) ? text(value) || '--' : date.toLocaleString();
 }
 
 function formatTimeRange(session) {
-  const start = normalizeText(session.startTime) || '--';
-  const end = normalizeText(session.endTime) || '--';
-  return `${start} - ${end}`;
+  let start = parseDateTime(session.sessionDate, session.startTime), end = parseDateTime(session.sessionDate, session.endTime);
+  if (start && end) return start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return (text(session.startTime) || '--') + ' - ' + (text(session.endTime) || '--');
 }
 
-function getCurrentInstructorProfile(session, users) {
-  if (!session || session.role !== 'instructor') return null;
-
-  const matchedUser = users.find((user) => {
-    if (normalizeId(user.docId) && normalizeId(user.docId) === normalizeId(session.docId)) return true;
-    if (normalizeId(user.instructorId) && normalizeId(user.instructorId) === normalizeId(session.universityId || session.studentId)) return true;
-    if (normalizeEmail(user.email) && normalizeEmail(user.email) === normalizeEmail(session.email)) return true;
-    return false;
-  });
-
-  return matchedUser || {
-    docId: session.docId,
-    instructorId: session.universityId || session.studentId || session.docId,
-    fullName: session.fullName || 'Instructor',
-    email: session.email,
-    role: 'instructor'
-  };
+function getDisplaySessionStatus(session) {
+  let now = new Date(), start = parseDateTime(session.sessionDate, session.startTime), end = parseDateTime(session.sessionDate, session.endTime), stored = lower(session.sessionStatus);
+  if (stored === 'cancelled') return 'Cancelled';
+  if (stored === 'ended') return 'Ended';
+  if (!start || !end) return stored === 'active' ? 'Active' : text(session.sessionStatus) || 'Scheduled';
+  if (now < start) return 'Scheduled';
+  if (now >= start && now <= end) return 'Open';
+  return 'Ended';
 }
 
-function getInstructorSessions(allSessions, instructorId) {
-  return allSessions.filter((session) => normalizeId(session.instructorId) === normalizeId(instructorId));
+function getStatusBadge(status) {
+  let name = lower(status), color = 'red';
+  if (name === 'open' || name === 'active' || name === 'present') color = 'green';
+  if (name === 'scheduled' || name === 'verified' || name === 'good') color = 'blue';
+  if (name === 'late' || name === 'pending') color = 'yellow';
+  return '<span class="badge badge-' + color + '">' + status + '</span>';
+}
+
+function courseTitle(course, fallback) {
+  if (!course) return text(fallback);
+  return text(course.courseName) || text(course.courseCode) || text(course.courseId) || text(fallback);
+}
+
+function courseMatches(course, value) { return same(course.courseId, value) || same(course.docId, value); }
+function enrollmentMatchesCourse(enrollment, value) { return same(enrollment.courseId, value) || same(enrollment.courseDocId, value); }
+function findCourse(courses, value) {
+  let i;
+  for (i = 0; i < courses.length; i += 1) if (courseMatches(courses[i], value)) return courses[i];
+  return null;
+}
+
+function getInstructorSessions(sessions, instructorId) {
+  return sessions.filter(function (session) { return same(session.instructorId, instructorId); });
 }
 
 function getCourseStudentCount(course, enrollments) {
-  const studentIds = new Set();
-  enrollments.forEach((enrollment) => {
-    const matchesCourse = normalizeId(enrollment.courseId) === normalizeId(course.courseId)
-      || normalizeId(enrollment.courseDocId) === normalizeId(course.docId);
-    if (matchesCourse && normalizeText(enrollment.studentId)) {
-      studentIds.add(normalizeId(enrollment.studentId));
-    }
-  });
-  return studentIds.size;
+  let ids = {};
+  let i;
+  for (i = 0; i < enrollments.length; i += 1) if ((courseMatches(course, enrollments[i].courseId) || courseMatches(course, enrollments[i].courseDocId)) && text(enrollments[i].studentId)) ids[lower(enrollments[i].studentId)] = true;
+  return Object.keys(ids).length;
 }
 
-function renderDashboard({
-  instructor,
-  courses,
-  enrollments,
-  sessions,
-  records
-}) {
-  const totalStudentsEl = document.getElementById('totalStudentsStat');
-  const activeCoursesEl = document.getElementById('activeCoursesStat');
-  const sessionsTodayEl = document.getElementById('sessionsTodayStat');
-  const averageAttendanceEl = document.getElementById('averageAttendanceStat');
-  const recentSessionsBody = document.getElementById('recentSessionsBody');
-  const courseSummaryBody = document.getElementById('courseSummaryBody');
-
-  if (!recentSessionsBody || !courseSummaryBody) return;
-
-  const instructorSessions = getInstructorSessions(sessions, instructor.instructorId);
-  const today = new Date().toISOString().slice(0, 10);
-  const todaySessions = instructorSessions.filter((session) => normalizeText(session.sessionDate) === today);
-
-  const expectedAttendance = instructorSessions.reduce((sum, session) => {
-    const relatedCourse = courses.find((course) => normalizeId(course.courseId) === normalizeId(session.courseId) || normalizeId(course.docId) === normalizeId(session.courseId));
-    return sum + (relatedCourse ? getCourseStudentCount(relatedCourse, enrollments) : 0);
-  }, 0);
-
-  const presentAttendance = records.filter((record) => {
-    const belongsToInstructor = instructorSessions.some((session) => normalizeId(session.sessionId) === normalizeId(record.sessionId));
-    return belongsToInstructor && normalizeText(record.attendanceStatus).toLowerCase() !== 'absent';
-  }).length;
-
-  const attendanceRate = expectedAttendance ? Math.round((presentAttendance / expectedAttendance) * 100) : 0;
-  const uniqueStudents = new Set(enrollments.map((enrollment) => normalizeId(enrollment.studentId)).filter(Boolean));
-
-  if (totalStudentsEl) totalStudentsEl.textContent = String(uniqueStudents.size);
-  if (activeCoursesEl) activeCoursesEl.textContent = String(courses.length);
-  if (sessionsTodayEl) sessionsTodayEl.textContent = String(todaySessions.length);
-  if (averageAttendanceEl) averageAttendanceEl.textContent = `${attendanceRate}%`;
-
-  const sortedSessions = [...instructorSessions]
-    .sort((left, right) => parseDateTime(right.sessionDate, right.startTime) - parseDateTime(left.sessionDate, left.startTime))
-    .slice(0, 8);
-
-  if (!sortedSessions.length) {
-    recentSessionsBody.innerHTML = '<tr><td colspan="4">No instructor sessions have been created yet.</td></tr>';
-  } else {
-    recentSessionsBody.innerHTML = sortedSessions.map((session) => {
-      const relatedCourse = courses.find((course) => normalizeId(course.courseId) === normalizeId(session.courseId) || normalizeId(course.docId) === normalizeId(session.courseId));
-      const sessionPresent = records.filter((record) => normalizeId(record.sessionId) === normalizeId(session.sessionId) && normalizeText(record.attendanceStatus).toLowerCase() !== 'absent').length;
-      const displayStatus = getDisplaySessionStatus(session);
-      return `
-        <tr>
-          <td>${normalizeText(session.courseName) || normalizeText(relatedCourse?.courseName) || normalizeText(relatedCourse?.courseCode) || normalizeText(session.courseId)}</td>
-          <td>${formatDate(session.sessionDate)}</td>
-          <td>${sessionPresent}</td>
-          <td>${getStatusBadge(displayStatus)}</td>
-        </tr>`;
-    }).join('');
+function findInstructor(session, users) {
+  let i;
+  for (i = 0; i < users.length; i += 1) {
+    if (same(users[i].docId, session.docId) || same(users[i].instructorId, session.universityId || session.studentId) || lower(users[i].email) === lower(session.email)) return users[i];
   }
-
-  if (!courses.length) {
-    courseSummaryBody.innerHTML = '<tr><td colspan="3">No Firestore courses were found for the instructor dashboard yet.</td></tr>';
-    return;
-  }
-
-  courseSummaryBody.innerHTML = courses.map((course) => {
-    const nextSession = [...instructorSessions]
-      .filter((session) => normalizeId(session.courseId) === normalizeId(course.courseId) || normalizeId(session.courseId) === normalizeId(course.docId))
-      .sort((left, right) => parseDateTime(left.sessionDate, left.startTime) - parseDateTime(right.sessionDate, right.startTime))
-      .find((session) => getDisplaySessionStatus(session) !== 'Closed');
-
-    const nextSessionText = nextSession
-      ? `${formatDate(nextSession.sessionDate)} ${formatTimeRange(nextSession)}`
-      : 'Not scheduled';
-
-    return `
-      <tr>
-        <td>${normalizeText(course.courseName) || normalizeText(course.courseCode) || normalizeText(course.courseId)}</td>
-        <td>${getCourseStudentCount(course, enrollments)}</td>
-        <td>${nextSessionText}</td>
-      </tr>`;
-  }).join('');
+  return { docId: session.docId, instructorId: session.universityId || session.studentId || session.docId, fullName: session.fullName || 'Instructor', email: session.email, role: 'instructor' };
 }
 
-function populateCourseSelect(selectEl, courses, includeAll = false) {
+function populateCourseSelect(selectEl, courses, includeAll) {
+  let html = includeAll ? '<option value="">All Courses</option>' : '<option value="">Select course</option>';
+  let i, label, suffix;
   if (!selectEl) return;
+  for (i = 0; i < courses.length; i += 1) {
+    label = courseTitle(courses[i], courses[i].docId);
+    suffix = text(courses[i].courseCode) && text(courses[i].courseCode) !== label ? ' (' + courses[i].courseCode + ')' : '';
+    html += '<option value="' + courses[i].docId + '">' + label + suffix + '</option>';
+  }
+  selectEl.innerHTML = html;
+}
 
-  const defaultOption = includeAll
-    ? '<option value="">All Courses</option>'
-    : '<option value="">Select course</option>';
-
-  selectEl.innerHTML = defaultOption + courses.map((course) => {
-    const label = normalizeText(course.courseName) || normalizeText(course.courseCode) || normalizeText(course.courseId);
-    const suffix = normalizeText(course.courseCode) && normalizeText(course.courseCode) !== label
-      ? ` (${course.courseCode})`
-      : '';
-    return `<option value="${course.docId}">${label}${suffix}</option>`;
-  }).join('');
+function renderDashboard(data) {
+  let own = getInstructorSessions(data.sessions, data.instructor.instructorId), recentBody = byId('recentSessionsBody'), summaryBody = byId('courseSummaryBody');
+  let expected = 0, present = 0, students = {}, rows = '', i, course, nextSession, sessionRecords;
+  if (!recentBody || !summaryBody) return;
+  for (i = 0; i < own.length; i += 1) { course = findCourse(data.courses, own[i].courseId); if (course) expected += getCourseStudentCount(course, data.enrollments); }
+  for (i = 0; i < data.records.length; i += 1) if (lower(data.records[i].attendanceStatus) !== 'absent' && own.some(function (s) { return same(s.sessionId, data.records[i].sessionId); })) present += 1;
+  for (i = 0; i < data.enrollments.length; i += 1) if (text(data.enrollments[i].studentId)) students[lower(data.enrollments[i].studentId)] = true;
+  setText('totalStudentsStat', Object.keys(students).length); setText('activeCoursesStat', data.courses.length);
+  setText('sessionsTodayStat', own.filter(function (s) { return text(s.sessionDate) === todayIso(); }).length);
+  setText('averageAttendanceStat', (expected ? Math.round((present / expected) * 100) : 0) + '%');
+  own.sort(function (a, b) { return parseDateTime(b.sessionDate, b.startTime) - parseDateTime(a.sessionDate, a.startTime); });
+  for (i = 0; i < Math.min(own.length, 8); i += 1) {
+    course = findCourse(data.courses, own[i].courseId);
+    sessionRecords = data.records.filter(function (r) { return same(r.sessionId, own[i].sessionId) && lower(r.attendanceStatus) !== 'absent'; }).length;
+    rows += '<tr><td>' + (text(own[i].courseName) || courseTitle(course, own[i].courseId)) + '</td><td>' + formatDate(own[i].sessionDate) + '</td><td>' + sessionRecords + '</td><td>' + getStatusBadge(getDisplaySessionStatus(own[i])) + '</td></tr>';
+  }
+  recentBody.innerHTML = rows || '<tr><td colspan="4">No instructor sessions have been created yet.</td></tr>';
+  rows = '';
+  for (i = 0; i < data.courses.length; i += 1) {
+    nextSession = own.filter(function (s) { return courseMatches(data.courses[i], s.courseId); }).sort(function (a, b) { return parseDateTime(a.sessionDate, a.startTime) - parseDateTime(b.sessionDate, b.startTime); }).find(function (s) { return getDisplaySessionStatus(s) !== 'Closed'; });
+    rows += '<tr><td>' + courseTitle(data.courses[i]) + '</td><td>' + getCourseStudentCount(data.courses[i], data.enrollments) + '</td><td>' + (nextSession ? formatDate(nextSession.sessionDate) + ' ' + formatTimeRange(nextSession) : 'Not scheduled') + '</td></tr>';
+  }
+  summaryBody.innerHTML = rows || '<tr><td colspan="3">No Firestore courses were found for the instructor dashboard yet.</td></tr>';
 }
 
 function renderUpcomingSessions(instructor, courses, sessions) {
-  const tableBody = document.getElementById('upcomingSessionsBody');
-  if (!tableBody) return;
-
-  const upcomingSessions = getInstructorSessions(sessions, instructor.instructorId)
-    .sort((left, right) => parseDateTime(left.sessionDate, left.startTime) - parseDateTime(right.sessionDate, right.startTime));
-
-  if (!upcomingSessions.length) {
-    tableBody.innerHTML = '<tr><td colspan="5">No sessions have been created yet.</td></tr>';
-    return;
+  let body = byId('upcomingSessionsBody'), rows = '', own = getInstructorSessions(sessions, instructor.instructorId), i, course;
+  if (!body) return;
+  own.sort(function (a, b) { return parseDateTime(a.sessionDate, a.startTime) - parseDateTime(b.sessionDate, b.startTime); });
+  for (i = 0; i < own.length; i += 1) {
+    course = findCourse(courses, own[i].courseId);
+    rows += '<tr><td>' + (text(own[i].courseName) || courseTitle(course, own[i].courseId)) + '</td><td>' + formatDate(own[i].sessionDate) + '</td><td>' + formatTimeRange(own[i]) + '</td><td>' + (text(own[i].classroom) || '--') + '</td><td>' + getStatusBadge(getDisplaySessionStatus(own[i])) + '</td></tr>';
   }
-
-  tableBody.innerHTML = upcomingSessions.map((session) => {
-    const course = courses.find((item) => normalizeId(item.courseId) === normalizeId(session.courseId) || normalizeId(item.docId) === normalizeId(session.courseId));
-    return `
-      <tr>
-        <td>${normalizeText(session.courseName) || normalizeText(course?.courseName) || normalizeText(course?.courseCode) || normalizeText(session.courseId)}</td>
-        <td>${formatDate(session.sessionDate)}</td>
-        <td>${formatTimeRange(session)}</td>
-        <td>${normalizeText(session.classroom) || '--'}</td>
-        <td>${getStatusBadge(getDisplaySessionStatus(session))}</td>
-      </tr>`;
-  }).join('');
+  body.innerHTML = rows || '<tr><td colspan="5">No sessions have been created yet.</td></tr>';
 }
 
 async function handleCreateSession(instructor, courses) {
-  const createButton = document.getElementById('createSessionBtn');
-  if (!createButton) return;
-
-  createButton.addEventListener('click', async () => {
-    const courseSelect = document.getElementById('course');
-    const sessionDate = document.getElementById('sessionDate');
-    const startTime = document.getElementById('startTime');
-    const endTime = document.getElementById('endTime');
-    const location = document.getElementById('location');
-    const notes = document.getElementById('notes');
-    const successMessage = document.getElementById('successMsg');
-
-    const selectedCourse = courses.find((course) => normalizeText(course.docId) === normalizeText(courseSelect?.value));
-
-    if (!selectedCourse) {
-      setPageStatus('Select one of the Firestore courses before creating a session.', 'warning');
-      return;
-    }
-
-    if (!normalizeText(sessionDate?.value) || !normalizeText(startTime?.value) || !normalizeText(endTime?.value)) {
-      setPageStatus('Fill in the session date, start time, and end time first.', 'warning');
-      return;
-    }
-
-    const start = parseDateTime(sessionDate.value, startTime.value);
-    const end = parseDateTime(sessionDate.value, endTime.value);
-    if (!start || !end || end <= start) {
-      setPageStatus('Set a valid time range where the end time is after the start time.', 'warning');
-      return;
-    }
-
-    createButton.disabled = true;
-    setPageStatus('Saving the attendance session to Firebase...', 'info');
-
+  let button = byId('createSessionBtn');
+  if (!button) return;
+  button.addEventListener('click', async function () {
+    let selected = findCourse(courses, byId('course').value), date = byId('sessionDate').value, startTime = byId('startTime').value, endTime = byId('endTime').value;
+    let start = parseDateTime(date, startTime), end = parseDateTime(date, endTime), ref, session;
+    if (!selected) return setPageStatus('Select one of the Firestore courses before creating a session.', 'warning');
+    if (!text(date) || !text(startTime) || !text(endTime)) return setPageStatus('Fill in the session date, start time, and end time first.', 'warning');
+    if (!start || !end || end <= start) return setPageStatus('Set a valid time range where the end time is after the start time.', 'warning');
+    button.disabled = true; setPageStatus('Saving the active session to Firebase...', 'info');
     try {
-      const sessionRef = doc(collection(db, ATTENDANCE_SESSION_WRITE_COLLECTION));
-      const draftSession = {
-        session_id: sessionRef.id,
-        course_id: selectedCourse.courseId || selectedCourse.docId,
+      ref = doc(collection(db, SESSION_WRITE_COLLECTION));
+      session = {
+        sessionId: ref.id,
+        session_id: ref.id,
+        courseId: selected.courseId || selected.docId,
+        course_id: selected.courseId || selected.docId,
+        instructorId: instructor.instructorId,
         instructor_id: instructor.instructorId,
-        classroom: normalizeText(location?.value),
-        session_date: normalizeText(sessionDate.value),
-        start_time: normalizeText(startTime.value),
-        end_time: normalizeText(endTime.value),
-        session_status: 'Scheduled',
-        course_name: normalizeText(selectedCourse.courseName),
-        course_code: normalizeText(selectedCourse.courseCode),
-        instructor_name: normalizeText(instructor.fullName),
-        notes: normalizeText(notes?.value),
+        classroom: text(byId('location').value),
+        sessionDate: text(date),
+        session_date: text(date),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        start_time: text(startTime),
+        end_time: text(endTime),
+        status: 'active',
+        sessionStatus: 'active',
+        session_status: 'active',
+        courseName: text(selected.courseName),
+        course_name: text(selected.courseName),
+        courseCode: text(selected.courseCode),
+        course_code: text(selected.courseCode),
+        instructorName: text(instructor.fullName),
+        instructor_name: text(instructor.fullName),
+        notes: text(byId('notes').value),
+        createdAt: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
-
-      draftSession.session_status = getDisplaySessionStatus({
-        sessionDate: draftSession.session_date,
-        startTime: draftSession.start_time,
-        endTime: draftSession.end_time,
-        sessionStatus: draftSession.session_status
-      });
-
-      await setDoc(sessionRef, draftSession, { merge: true });
-
-      if (successMessage) successMessage.style.display = 'block';
-      setPageStatus('The attendance session was created successfully.', 'success');
-      window.setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      await setDoc(ref, session, { merge: true }); if (byId('successMsg')) byId('successMsg').style.display = 'block';
+      setPageStatus('The active attendance session was created in the sessions collection.', 'success'); window.setTimeout(function () { window.location.reload(); }, 500);
     } catch (error) {
-      const code = String(error?.code || '');
-      setPageStatus(
-        code.includes('permission-denied')
-          ? 'Firestore rules are blocking Attendance_Session writes.'
-          : (error?.message || 'Could not create the session.'),
-        'error'
-      );
-    } finally {
-      createButton.disabled = false;
-    }
+      setPageStatus(String(error.code || '').indexOf('permission-denied') >= 0 ? 'Firestore rules are blocking sessions writes.' : error.message || 'Could not create the session.', 'error');
+    } finally { button.disabled = false; }
   });
 }
 
-function buildAttendanceRows({ instructor, sessions, records, enrollments, students, courses, filters }) {
-  const studentMap = buildStudentMap(students);
-  const courseMap = buildCourseMap(courses);
+function buildStudentMap(students) {
+  let map = {}, i;
+  for (i = 0; i < students.length; i += 1) { if (lower(students[i].studentId)) map[lower(students[i].studentId)] = students[i]; if (lower(students[i].docId)) map[lower(students[i].docId)] = students[i]; if (lower(students[i].email)) map[lower(students[i].email)] = students[i]; }
+  return map;
+}
 
-  const filteredSessions = getInstructorSessions(sessions, instructor.instructorId).filter((session) => {
-    if (filters.courseId) {
-      const matchesCourse = normalizeId(session.courseId) === normalizeId(filters.courseId)
-        || normalizeId(session.courseId) === normalizeId(filters.courseDocId);
-      if (!matchesCourse) return false;
-    }
-
-    if (filters.date && normalizeText(session.sessionDate) !== normalizeText(filters.date)) {
-      return false;
-    }
-
+function filteredSessions(data, filters) {
+  return getInstructorSessions(data.sessions, data.instructor.instructorId).filter(function (session) {
+    if (filters.courseId && !same(session.courseId, filters.courseId) && !same(session.courseId, filters.courseDocId)) return false;
+    if (filters.date && text(session.sessionDate) !== text(filters.date)) return false;
+    if (filters.from && text(session.sessionDate) < text(filters.from)) return false;
+    if (filters.to && text(session.sessionDate) > text(filters.to)) return false;
     return true;
   });
+}
 
-  const rows = [];
-
-  filteredSessions.forEach((session) => {
-    const relatedCourse = courseMap.get(normalizeId(session.courseId)) || courseMap.get(normalizeId(session.raw?.course_doc_id));
-    const courseEnrollments = enrollments.filter((enrollment) => normalizeId(enrollment.courseId) === normalizeId(session.courseId) || normalizeId(enrollment.courseDocId) === normalizeId(session.courseId));
-    const sessionRecords = records.filter((record) => normalizeId(record.sessionId) === normalizeId(session.sessionId));
-    const recordMap = new Map(sessionRecords.map((record) => [`${normalizeId(session.sessionId)}::${normalizeId(record.studentId)}`, record]));
-    const renderedStudentIds = new Set();
-
-    courseEnrollments.forEach((enrollment) => {
-      const student = studentMap.get(normalizeId(enrollment.studentId)) || studentMap.get(normalizeId(enrollment.studentEmail));
-      const studentId = normalizeText(student?.studentId || enrollment.studentId);
-      const fullName = normalizeText(student?.fullName || enrollment.studentEmail || `Student ${studentId}`);
-      const matchingRecord = recordMap.get(`${normalizeId(session.sessionId)}::${normalizeId(studentId)}`);
-      const status = matchingRecord ? normalizeText(matchingRecord.attendanceStatus || 'Present') : 'Absent';
-
-      rows.push({
-        studentId,
-        fullName,
-        courseLabel: normalizeText(session.courseName) || normalizeText(relatedCourse?.courseName) || normalizeText(relatedCourse?.courseCode) || normalizeText(session.courseId),
-        sessionDate: normalizeText(session.sessionDate),
-        markedAt: normalizeText(matchingRecord?.markedAt),
-        status
-      });
-
-      renderedStudentIds.add(normalizeId(studentId));
-    });
-
-    sessionRecords.forEach((record) => {
-      if (renderedStudentIds.has(normalizeId(record.studentId))) return;
-      const student = studentMap.get(normalizeId(record.studentId));
-      rows.push({
-        studentId: normalizeText(record.studentId),
-        fullName: normalizeText(record.studentName || student?.fullName || `Student ${record.studentId}`),
-        courseLabel: normalizeText(record.courseName) || normalizeText(session.courseName) || normalizeText(relatedCourse?.courseName) || normalizeText(session.courseId),
-        sessionDate: normalizeText(record.sessionDate || session.sessionDate),
-        markedAt: normalizeText(record.markedAt),
-        status: normalizeText(record.attendanceStatus || 'Present')
-      });
-    });
-  });
-
-  const search = normalizeText(filters.search).toLowerCase();
-  return rows.filter((row) => {
-    if (!search) return true;
-    return row.studentId.toLowerCase().includes(search) || row.fullName.toLowerCase().includes(search);
-  }).sort((left, right) => {
-    const dateCompare = normalizeText(right.sessionDate).localeCompare(normalizeText(left.sessionDate));
-    if (dateCompare !== 0) return dateCompare;
-    return normalizeText(left.fullName).localeCompare(normalizeText(right.fullName));
-  });
+function buildAttendanceRows(data, filters) {
+  let students = buildStudentMap(data.students), sessions = filteredSessions(data, filters), rows = [], i, j, session, records, student, record, rendered, studentId;
+  for (i = 0; i < sessions.length; i += 1) {
+    session = sessions[i]; rendered = {};
+    records = data.records.filter(function (r) { return same(r.sessionId, session.sessionId); });
+    for (j = 0; j < data.enrollments.length; j += 1) {
+      if (!enrollmentMatchesCourse(data.enrollments[j], session.courseId)) continue;
+      student = students[lower(data.enrollments[j].studentId)] || students[lower(data.enrollments[j].studentEmail)];
+      studentId = text(student ? student.studentId : data.enrollments[j].studentId); rendered[lower(studentId)] = true;
+      record = records.find(function (r) { return same(r.studentId, studentId); });
+      rows.push({ studentId: studentId, fullName: text(student ? student.fullName : data.enrollments[j].studentEmail), courseLabel: text(session.courseName) || text(session.courseId), sessionDate: text(session.sessionDate), markedAt: record ? text(record.markedAt) : '', status: record ? text(record.attendanceStatus || 'Present') : 'Absent' });
+    }
+    for (j = 0; j < records.length; j += 1) {
+      if (rendered[lower(records[j].studentId)]) continue;
+      student = students[lower(records[j].studentId)];
+      rows.push({ studentId: text(records[j].studentId), fullName: text(records[j].studentName || (student ? student.fullName : 'Student ' + records[j].studentId)), courseLabel: text(records[j].courseName || session.courseName || session.courseId), sessionDate: text(records[j].sessionDate || session.sessionDate), markedAt: text(records[j].markedAt), status: text(records[j].attendanceStatus || 'Present') });
+    }
+  }
+  return rows.filter(function (row) { return !filters.search || lower(row.studentId).indexOf(lower(filters.search)) >= 0 || lower(row.fullName).indexOf(lower(filters.search)) >= 0; });
 }
 
 function renderAttendancePage(data) {
-  const courseFilter = document.getElementById('courseFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const searchInput = document.getElementById('searchInput');
-  const tableBody = document.getElementById('studentTable');
-  const presentCountStat = document.getElementById('presentCountStat');
-  const absentCountStat = document.getElementById('absentCountStat');
-  const attendanceRateStat = document.getElementById('attendanceRateStat');
-
-  if (!tableBody) return;
-
+  let courseFilter = byId('courseFilter'), dateFilter = byId('dateFilter'), searchInput = byId('searchInput'), body = byId('studentTable');
+  if (!body) return;
   populateCourseSelect(courseFilter, data.courses, true);
-
-  const render = () => {
-    const selectedCourse = data.courses.find((course) => normalizeText(course.docId) === normalizeText(courseFilter?.value));
-    const rows = buildAttendanceRows({
-      ...data,
-      filters: {
-        courseId: selectedCourse?.courseId || '',
-        courseDocId: selectedCourse?.docId || '',
-        date: normalizeText(dateFilter?.value),
-        search: normalizeText(searchInput?.value)
-      }
-    });
-
-    if (!rows.length) {
-      tableBody.innerHTML = '<tr><td colspan="6">No attendance rows match the current filters yet.</td></tr>';
-    } else {
-      tableBody.innerHTML = rows.map((row) => `
-        <tr>
-          <td>${row.studentId || '--'}</td>
-          <td>${row.fullName || '--'}</td>
-          <td>${row.courseLabel || '--'}</td>
-          <td>${formatDate(row.sessionDate)}</td>
-          <td>${row.markedAt ? formatDateTime(row.markedAt) : '--'}</td>
-          <td>${getStatusBadge(row.status)}</td>
-        </tr>`).join('');
-    }
-
-    const presentCount = rows.filter((row) => normalizeText(row.status).toLowerCase() !== 'absent').length;
-    const absentCount = rows.filter((row) => normalizeText(row.status).toLowerCase() === 'absent').length;
-    const totalCount = presentCount + absentCount;
-    const rate = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
-
-    if (presentCountStat) presentCountStat.textContent = String(presentCount);
-    if (absentCountStat) absentCountStat.textContent = String(absentCount);
-    if (attendanceRateStat) attendanceRateStat.textContent = `${rate}%`;
-  };
-
-  courseFilter?.addEventListener('change', render);
-  dateFilter?.addEventListener('change', render);
-  searchInput?.addEventListener('input', render);
+  function render() {
+    let course = findCourse(data.courses, courseFilter ? courseFilter.value : ''), rows = buildAttendanceRows(data, { courseId: course ? course.courseId : '', courseDocId: course ? course.docId : '', date: dateFilter ? dateFilter.value : '', search: searchInput ? searchInput.value : '' });
+    let html = '', present = 0, i;
+    for (i = 0; i < rows.length; i += 1) { if (lower(rows[i].status) !== 'absent') present += 1; html += '<tr><td>' + (rows[i].studentId || '--') + '</td><td>' + (rows[i].fullName || '--') + '</td><td>' + (rows[i].courseLabel || '--') + '</td><td>' + formatDate(rows[i].sessionDate) + '</td><td>' + (rows[i].markedAt ? formatDateTime(rows[i].markedAt) : '--') + '</td><td>' + getStatusBadge(rows[i].status) + '</td></tr>'; }
+    body.innerHTML = html || '<tr><td colspan="6">No attendance rows match the current filters yet.</td></tr>';
+    setText('presentCountStat', present); setText('absentCountStat', rows.length - present); setText('attendanceRateStat', (rows.length ? Math.round((present / rows.length) * 100) : 0) + '%');
+  }
+  if (courseFilter) courseFilter.addEventListener('change', render);
+  if (dateFilter) dateFilter.addEventListener('change', render);
+  if (searchInput) searchInput.addEventListener('input', render);
   render();
 }
 
-function buildReportRows({ instructor, sessions, records, enrollments, students, courses, filters }) {
-  const studentMap = buildStudentMap(students);
-  const courseMap = buildCourseMap(courses);
-  const filteredSessions = getInstructorSessions(sessions, instructor.instructorId).filter((session) => {
-    if (filters.courseId) {
-      const matchesCourse = normalizeId(session.courseId) === normalizeId(filters.courseId)
-        || normalizeId(session.courseId) === normalizeId(filters.courseDocId);
-      if (!matchesCourse) return false;
+function buildReportRows(data, filters) {
+  let students = buildStudentMap(data.students), sessions = filteredSessions(data, filters), rows = [], buckets = {}, studentIds = {}, courseKey, i, j, session, course, total, attended, student;
+  for (i = 0; i < sessions.length; i += 1) { courseKey = lower(sessions[i].courseId); if (!buckets[courseKey]) buckets[courseKey] = []; buckets[courseKey].push(sessions[i]); }
+  for (courseKey in buckets) {
+    studentIds = {};
+    for (i = 0; i < data.enrollments.length; i += 1) if (same(data.enrollments[i].courseId, courseKey) || same(data.enrollments[i].courseDocId, courseKey)) studentIds[lower(data.enrollments[i].studentId)] = true;
+    for (i = 0; i < data.records.length; i += 1) for (j = 0; j < buckets[courseKey].length; j += 1) if (text(data.records[i].studentId) && same(data.records[i].sessionId, buckets[courseKey][j].sessionId)) studentIds[lower(data.records[i].studentId)] = true;
+    for (let studentKey in studentIds) {
+      student = students[studentKey] || { studentId: studentKey, fullName: 'Student ' + studentKey }; if (filters.student && lower(student.studentId).indexOf(lower(filters.student)) < 0) continue;
+      total = buckets[courseKey].length; attended = data.records.filter(function (r) { return same(r.studentId, student.studentId) && lower(r.attendanceStatus) !== 'absent' && buckets[courseKey].some(function (s) { return same(s.sessionId, r.sessionId); }); }).length;
+      session = buckets[courseKey][0]; course = findCourse(data.courses, session.courseId);
+      rows.push({ studentId: student.studentId, fullName: student.fullName, courseLabel: courseTitle(course, session.courseName || session.courseId), attended: attended, totalSessions: total, rate: total ? Math.round((attended / total) * 100) : 0 });
     }
-
-    if (filters.from && normalizeText(session.sessionDate) < normalizeText(filters.from)) return false;
-    if (filters.to && normalizeText(session.sessionDate) > normalizeText(filters.to)) return false;
-    return true;
-  });
-
-  const reportRows = [];
-  const courseBuckets = new Map();
-
-  filteredSessions.forEach((session) => {
-    const courseKey = normalizeId(session.courseId);
-    if (!courseBuckets.has(courseKey)) {
-      courseBuckets.set(courseKey, []);
-    }
-    courseBuckets.get(courseKey).push(session);
-  });
-
-  courseBuckets.forEach((courseSessions, courseKey) => {
-    const course = courseMap.get(courseKey) || courseMap.get(normalizeId(courseSessions[0]?.courseId));
-    const courseEnrollments = enrollments.filter((enrollment) => normalizeId(enrollment.courseId) === courseKey || normalizeId(enrollment.courseDocId) === courseKey);
-    const totalSessions = courseSessions.length;
-    const sessionIds = new Set(courseSessions.map((session) => normalizeId(session.sessionId)));
-    const studentIds = new Set();
-
-    courseEnrollments.forEach((enrollment) => {
-      if (normalizeText(enrollment.studentId)) studentIds.add(normalizeId(enrollment.studentId));
-    });
-
-    records.forEach((record) => {
-      if (sessionIds.has(normalizeId(record.sessionId)) && normalizeText(record.studentId)) {
-        studentIds.add(normalizeId(record.studentId));
-      }
-    });
-
-    studentIds.forEach((studentKey) => {
-      const student = studentMap.get(studentKey);
-      const attended = records.filter((record) => {
-        return sessionIds.has(normalizeId(record.sessionId))
-          && normalizeId(record.studentId) === studentKey
-          && normalizeText(record.attendanceStatus).toLowerCase() !== 'absent';
-      }).length;
-
-      const studentId = normalizeText(student?.studentId || studentKey);
-      if (filters.student && !studentId.toLowerCase().includes(normalizeText(filters.student).toLowerCase())) return;
-
-      const rate = totalSessions ? Math.round((attended / totalSessions) * 100) : 0;
-      reportRows.push({
-        studentId,
-        fullName: normalizeText(student?.fullName || `Student ${studentId}`),
-        courseLabel: normalizeText(course?.courseName) || normalizeText(course?.courseCode) || normalizeText(courseSessions[0]?.courseId),
-        attended,
-        totalSessions,
-        rate,
-        status: rate >= 75 ? 'Good' : 'Below 75%'
-      });
-    });
-  });
-
-  return {
-    sessionsCount: filteredSessions.length,
-    rows: reportRows.sort((left, right) => {
-      const courseCompare = normalizeText(left.courseLabel).localeCompare(normalizeText(right.courseLabel));
-      if (courseCompare !== 0) return courseCompare;
-      return normalizeText(left.fullName).localeCompare(normalizeText(right.fullName));
-    })
-  };
+  }
+  return { sessionsCount: sessions.length, rows: rows };
 }
 
 function renderReportPage(data) {
-  const repCourse = document.getElementById('repCourse');
-  const repStudent = document.getElementById('repStudent');
-  const repFrom = document.getElementById('repFrom');
-  const repTo = document.getElementById('repTo');
-  const generateButton = document.getElementById('generateReportBtn');
-  const reportOutput = document.getElementById('reportOutput');
-  const reportTableBody = document.getElementById('reportTableBody');
-  const reportSessionsStat = document.getElementById('reportSessionsStat');
-  const reportAverageStat = document.getElementById('reportAverageStat');
-  const reportBelowThresholdStat = document.getElementById('reportBelowThresholdStat');
-
-  if (!generateButton || !reportOutput || !reportTableBody) return;
-
-  populateCourseSelect(repCourse, data.courses, true);
-
-  generateButton.addEventListener('click', () => {
-    const selectedCourse = data.courses.find((course) => normalizeText(course.docId) === normalizeText(repCourse?.value));
-    const report = buildReportRows({
-      ...data,
-      filters: {
-        courseId: selectedCourse?.courseId || '',
-        courseDocId: selectedCourse?.docId || '',
-        student: normalizeText(repStudent?.value),
-        from: normalizeText(repFrom?.value),
-        to: normalizeText(repTo?.value)
-      }
-    });
-
-    reportOutput.style.display = 'block';
-
-    if (!report.rows.length) {
-      reportTableBody.innerHTML = '<tr><td colspan="7">No report rows match the selected filters.</td></tr>';
-    } else {
-      reportTableBody.innerHTML = report.rows.map((row) => `
-        <tr>
-          <td>${row.studentId || '--'}</td>
-          <td>${row.fullName || '--'}</td>
-          <td>${row.courseLabel || '--'}</td>
-          <td>${row.attended}</td>
-          <td>${row.totalSessions}</td>
-          <td>${row.rate}%</td>
-          <td>${getStatusBadge(row.status)}</td>
-        </tr>`).join('');
-    }
-
-    const totalPossible = report.rows.reduce((sum, row) => sum + row.totalSessions, 0);
-    const totalAttended = report.rows.reduce((sum, row) => sum + row.attended, 0);
-    const averageRate = totalPossible ? Math.round((totalAttended / totalPossible) * 100) : 0;
-    const belowThreshold = report.rows.filter((row) => row.rate < 75).length;
-
-    if (reportSessionsStat) reportSessionsStat.textContent = String(report.sessionsCount);
-    if (reportAverageStat) reportAverageStat.textContent = `${averageRate}%`;
-    if (reportBelowThresholdStat) reportBelowThresholdStat.textContent = String(belowThreshold);
+  let button = byId('generateReportBtn'), body = byId('reportTableBody');
+  if (!button || !body) return;
+  populateCourseSelect(byId('repCourse'), data.courses, true);
+  button.addEventListener('click', function () {
+    let course = findCourse(data.courses, byId('repCourse').value), report = buildReportRows(data, { courseId: course ? course.courseId : '', courseDocId: course ? course.docId : '', student: byId('repStudent').value, from: byId('repFrom').value, to: byId('repTo').value });
+    let html = '', possible = 0, attended = 0, i;
+    if (byId('reportOutput')) byId('reportOutput').style.display = 'block';
+    for (i = 0; i < report.rows.length; i += 1) { possible += report.rows[i].totalSessions; attended += report.rows[i].attended; html += '<tr><td>' + report.rows[i].studentId + '</td><td>' + report.rows[i].fullName + '</td><td>' + report.rows[i].courseLabel + '</td><td>' + report.rows[i].attended + '</td><td>' + report.rows[i].totalSessions + '</td><td>' + report.rows[i].rate + '%</td><td>' + getStatusBadge(report.rows[i].rate >= 75 ? 'Good' : 'Below 75%') + '</td></tr>'; }
+    body.innerHTML = html || '<tr><td colspan="7">No report rows match the selected filters.</td></tr>';
+    setText('reportSessionsStat', report.sessionsCount); setText('reportAverageStat', (possible ? Math.round((attended / possible) * 100) : 0) + '%'); setText('reportBelowThresholdStat', report.rows.filter(function (r) { return r.rate < 75; }).length);
   });
 }
 
+async function loadPortalData() {
+  let sources = await Promise.all([readCollection(COLLECTIONS.users), readCollection(COLLECTIONS.students), readCollection(COLLECTIONS.courses), readCollection(COLLECTIONS.enrollments), readCollection(COLLECTIONS.sessions), readCollection(COLLECTIONS.records)]);
+  return { users: sources[0].map(normalizeUser).filter(function (u) { return u.role === 'instructor' || u.role === 'admin'; }), students: sources[1].map(normalizeStudent), courses: sources[2].map(normalizeCourse), enrollments: sources[3].map(normalizeEnrollment), sessions: sources[4].map(normalizeSession), records: sources[5].map(normalizeRecord) };
+}
+
 async function bootstrapInstructorPortal() {
+  let logout = document.querySelector('[data-action="logout"]'), session, data, instructor;
   setActiveNavLink();
-
-  document.querySelector('[data-action="logout"]')?.addEventListener('click', () => {
-    clearStoredSession('instructor');
-    window.location.href = '../Admin Pages/login.html';
-  });
-
-  const session = readStoredSession('instructor');
-  if (!session || session.role !== 'instructor') {
-    setPageStatus('Sign in as an instructor first to open this portal.', 'warning');
-    return;
-  }
-
+  if (logout) logout.addEventListener('click', function () { clearStoredSession('instructor'); window.location.href = '../Admin Pages/login.html'; });
+  session = readStoredSession('instructor');
+  if (!session || session.role !== 'instructor') return setPageStatus('Sign in as an instructor first to open this portal.', 'warning');
   try {
-    const [
-      userSource,
-      studentSource,
-      courseSource,
-      enrollmentSource,
-      attendanceSessionSource,
-      attendanceRecordSource
-    ] = await Promise.all([
-      readCollectionCandidates(USERS_COLLECTION_CANDIDATES),
-      readCollectionCandidates(STUDENT_COLLECTION_CANDIDATES),
-      readCollectionCandidates(COURSE_COLLECTION_CANDIDATES),
-      readCollectionCandidates(ENROLLMENT_COLLECTION_CANDIDATES),
-      readCollectionCandidates(ATTENDANCE_SESSION_COLLECTION_CANDIDATES),
-      readCollectionCandidates(ATTENDANCE_RECORD_COLLECTION_CANDIDATES)
-    ]);
-
-    const users = userSource.docs.map(normalizeUser).filter((user) => user.role === 'instructor' || user.role === 'admin');
-    const students = studentSource.docs.map(normalizeStudent);
-    const courses = courseSource.docs.map(normalizeCourse).sort((left, right) => {
-      return `${left.courseName} ${left.courseCode}`.localeCompare(`${right.courseName} ${right.courseCode}`);
-    });
-    const enrollments = enrollmentSource.docs.map(normalizeEnrollment);
-    const sessions = attendanceSessionSource.docs.map(normalizeAttendanceSession);
-    const records = attendanceRecordSource.docs.map(normalizeAttendanceRecord);
-
-    const instructor = getCurrentInstructorProfile(session, users);
-    if (!instructor) {
-      setPageStatus('The logged-in instructor could not be matched to the Users collection.', 'error');
-      return;
-    }
-
-    if (currentPage === 'instructor-dashboard') {
-      renderDashboard({ instructor, courses, enrollments, sessions, records });
-      setPageStatus('Dashboard connected to Firestore courses, sessions, and attendance records.', 'success');
-      return;
-    }
-
-    if (currentPage === 'sessions') {
-      populateCourseSelect(document.getElementById('course'), courses, false);
-      const sessionDateInput = document.getElementById('sessionDate');
-      if (sessionDateInput && !sessionDateInput.value) {
-        sessionDateInput.value = new Date().toISOString().slice(0, 10);
-      }
-      renderUpcomingSessions(instructor, courses, sessions);
-      await handleCreateSession(instructor, courses);
-      setPageStatus('Choose one of the Firestore courses to create an attendance session.', 'info');
-      return;
-    }
-
-    if (currentPage === 'attendance') {
-      renderAttendancePage({ instructor, students, courses, enrollments, sessions, records });
-      setPageStatus('Attendance rows are built from Attendance_Session, Attendance_Record, Enrollment, and Student.', 'info');
-      return;
-    }
-
-    if (currentPage === 'reports') {
-      renderReportPage({ instructor, students, courses, enrollments, sessions, records });
-      setPageStatus('Generate reports from verified attendance records for this instructor.', 'info');
-    }
+    data = await loadPortalData(); instructor = findInstructor(session, data.users); data.instructor = instructor;
+    if (currentPage === 'instructor-dashboard') { renderDashboard(data); return setPageStatus('Dashboard connected to Firestore courses, sessions, and attendance records.', 'success'); }
+    if (currentPage === 'sessions') { populateCourseSelect(byId('course'), data.courses, false); if (byId('sessionDate') && !byId('sessionDate').value) byId('sessionDate').value = todayIso(); renderUpcomingSessions(instructor, data.courses, data.sessions); await handleCreateSession(instructor, data.courses); return setPageStatus('Choose one of the Firestore courses to create an attendance session.', 'info'); }
+    if (currentPage === 'attendance') { renderAttendancePage(data); return setPageStatus('Attendance rows are built from Attendance_Session, Attendance_Record, Enrollment, and Student.', 'info'); }
+    if (currentPage === 'reports') { renderReportPage(data); setPageStatus('Generate reports from verified attendance records for this instructor.', 'info'); }
   } catch (error) {
-    const code = String(error?.code || '');
-    setPageStatus(
-      code.includes('permission-denied')
-        ? 'Firestore rules are blocking instructor portal reads.'
-        : (error?.message || 'Could not load the instructor portal.'),
-      'error'
-    );
+    setPageStatus(String(error.code || '').indexOf('permission-denied') >= 0 ? 'Firestore rules are blocking instructor portal reads.' : error.message || 'Could not load the instructor portal.', 'error');
   }
 }
 

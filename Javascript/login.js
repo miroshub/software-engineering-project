@@ -11,77 +11,84 @@ const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 const statusMessage = document.getElementById('statusMessage');
 
-function setStatus(message, type = '') {
+function text(value) {
+  return String(value || '').trim();
+}
+
+function lower(value) {
+  return text(value).toLowerCase();
+}
+
+function cleanKey(value) {
+  return lower(value).replace(/[\s_-]+/g, '');
+}
+
+function hasOwn(data, key) {
+  return Object.prototype.hasOwnProperty.call(data, key);
+}
+
+function setStatus(message, type) {
   if (!statusMessage) return;
   statusMessage.textContent = message;
   statusMessage.className = 'status-message';
   if (type) statusMessage.classList.add(type);
 }
 
-function normalizeText(value) {
-  return String(value || '').trim();
-}
+function getValue(data, names) {
+  let i;
+  let item;
+  let value;
+  let entries;
+  let allowed = {};
+  data = data || {};
 
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function normalizeFieldKey(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '');
-}
-
-function getFieldValue(data, aliases = []) {
-  const entries = Object.entries(data || {});
-
-  for (const alias of aliases) {
-    if (Object.hasOwn(data, alias)) {
-      const directValue = normalizeText(data[alias]);
-      if (directValue) return directValue;
+  for (i = 0; i < names.length; i += 1) {
+    if (hasOwn(data, names[i])) {
+      value = text(data[names[i]]);
+      if (value) return value;
     }
+    allowed[cleanKey(names[i])] = true;
   }
 
-  const normalizedAliases = new Set(aliases.map(normalizeFieldKey));
-  for (const [key, value] of entries) {
-    if (!normalizedAliases.has(normalizeFieldKey(key))) continue;
-    const normalizedValue = normalizeText(value);
-    if (normalizedValue) return normalizedValue;
+  entries = Object.entries(data);
+  for (i = 0; i < entries.length; i += 1) {
+    item = entries[i];
+    value = text(item[1]);
+    if (allowed[cleanKey(item[0])] && value) return value;
   }
 
   return '';
 }
 
-function buildProfileRecord(snapshot, collectionName) {
-  const data = snapshot.data() || {};
-  const email = normalizeEmail(getFieldValue(data, ['email', 'emailLower', 'email_lower']));
-  const password = normalizeText(getFieldValue(data, ['password', 'pass']));
-  const role = normalizeText(getFieldValue(data, ['role', 'userRole', 'user_role'])).toLowerCase();
-
+function buildProfile(snapshot, collectionName) {
+  let data = snapshot.data() || {};
   return {
     docId: snapshot.id,
-    collectionName,
-    email,
-    password,
-    role,
-    fullName: getFieldValue(data, ['fullName', 'full_name', 'name']),
-    studentId: getFieldValue(data, ['studentId', 'student_id', 'universityId', 'university_id']),
-    universityId: getFieldValue(data, ['universityId', 'university_id', 'studentId', 'student_id']),
+    collectionName: collectionName,
+    email: lower(getValue(data, ['email', 'emailLower', 'email_lower'])),
+    password: text(getValue(data, ['password', 'pass'])),
+    role: lower(getValue(data, ['role', 'userRole', 'user_role'])),
+    fullName: getValue(data, ['fullName', 'full_name', 'name']),
+    studentId: getValue(data, ['studentId', 'student_id', 'universityId', 'university_id']),
+    universityId: getValue(data, ['universityId', 'university_id', 'studentId', 'student_id']),
     raw: data
   };
 }
 
-async function readFirstExistingCollection(collectionCandidates) {
+async function readFirstExistingCollection(collectionNames) {
+  let i;
+  let snapshot;
   let lastError = null;
+  let profiles = [];
 
-  for (const collectionName of collectionCandidates) {
+  for (i = 0; i < collectionNames.length; i += 1) {
     try {
-      const snapshot = await getDocs(collection(db, collectionName));
+      snapshot = await getDocs(collection(db, collectionNames[i]));
       if (!snapshot.empty) {
-        return {
-          collectionName,
-          profiles: snapshot.docs.map((docSnapshot) => buildProfileRecord(docSnapshot, collectionName))
-        };
+        profiles = snapshot.docs.map(function (docSnapshot) {
+          return buildProfile(docSnapshot, collectionNames[i]);
+        });
+        return { collectionName: collectionNames[i], profiles: profiles };
       }
     } catch (error) {
       lastError = error;
@@ -89,11 +96,7 @@ async function readFirstExistingCollection(collectionCandidates) {
   }
 
   if (lastError) throw lastError;
-
-  return {
-    collectionName: collectionCandidates[0],
-    profiles: []
-  };
+  return { collectionName: collectionNames[0], profiles: [] };
 }
 
 function getRedirectForRole(role) {
@@ -103,7 +106,7 @@ function getRedirectForRole(role) {
 }
 
 function persistSession(profile) {
-  const session = {
+  let session = {
     docId: profile.docId,
     collection: profile.collectionName,
     email: profile.email,
@@ -113,13 +116,12 @@ function persistSession(profile) {
     universityId: profile.universityId,
     loggedInAt: new Date().toISOString()
   };
+  let sessionsByRole = {};
 
   localStorage.setItem(GENERIC_SESSION_KEY, JSON.stringify(session));
-
-  let sessionsByRole = {};
   try {
     sessionsByRole = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}');
-  } catch {
+  } catch (error) {
     sessionsByRole = {};
   }
 
@@ -128,34 +130,47 @@ function persistSession(profile) {
 }
 
 function findMatchingUser(profiles, email, password) {
-  return profiles.find((profile) => {
-    if (profile.email !== email) return false;
-    if (profile.password !== password) return false;
-    return profile.role === 'admin' || profile.role === 'instructor';
-  }) || null;
+  let i;
+  for (i = 0; i < profiles.length; i += 1) {
+    if (profiles[i].email === email && profiles[i].password === password) {
+      if (profiles[i].role === 'admin' || profiles[i].role === 'instructor') {
+        return profiles[i];
+      }
+    }
+  }
+  return null;
 }
 
 function findMatchingStudent(profiles, email, password) {
-  return profiles.find((profile) => profile.email === email && profile.password === password) || null;
+  let i;
+  for (i = 0; i < profiles.length; i += 1) {
+    if (profiles[i].email === email && profiles[i].password === password) {
+      profiles[i].role = 'student';
+      return profiles[i];
+    }
+  }
+  return null;
 }
 
 function getLoginErrorMessage(error) {
-  const code = String(error?.code || '');
-
-  if (code.includes('permission-denied')) {
+  let code = String(error && error.code ? error.code : '');
+  if (code.indexOf('permission-denied') >= 0) {
     return 'Firestore rules are blocking login reads for Users or Student.';
   }
-
-  return error?.message || 'Could not sign in right now.';
+  return error && error.message ? error.message : 'Could not sign in right now.';
 }
 
 async function handleLogin(event) {
+  let enteredEmail;
+  let enteredPassword;
+  let sources;
+  let matchedProfile;
   event.preventDefault();
 
-  const email = normalizeEmail(emailInput?.value);
-  const password = normalizeText(passwordInput?.value);
+  enteredEmail = lower(emailInput ? emailInput.value : '');
+  enteredPassword = text(passwordInput ? passwordInput.value : '');
 
-  if (!email || !password) {
+  if (!enteredEmail || !enteredPassword) {
     setStatus('Enter both email and password.', 'error');
     return;
   }
@@ -163,23 +178,19 @@ async function handleLogin(event) {
   setStatus('Checking your account...', '');
 
   try {
-    const [userSource, studentSource] = await Promise.all([
+    sources = await Promise.all([
       readFirstExistingCollection(USER_COLLECTION_CANDIDATES),
       readFirstExistingCollection(STUDENT_COLLECTION_CANDIDATES)
     ]);
 
-    const matchedUser = findMatchingUser(userSource.profiles, email, password);
-    if (matchedUser) {
-      persistSession(matchedUser);
-      window.location.href = getRedirectForRole(matchedUser.role);
-      return;
+    matchedProfile = findMatchingUser(sources[0].profiles, enteredEmail, enteredPassword);
+    if (!matchedProfile) {
+      matchedProfile = findMatchingStudent(sources[1].profiles, enteredEmail, enteredPassword);
     }
 
-    const matchedStudent = findMatchingStudent(studentSource.profiles, email, password);
-    if (matchedStudent) {
-      const studentProfile = { ...matchedStudent, role: 'student' };
-      persistSession(studentProfile);
-      window.location.href = getRedirectForRole('student');
+    if (matchedProfile) {
+      persistSession(matchedProfile);
+      window.location.href = getRedirectForRole(matchedProfile.role);
       return;
     }
 
@@ -189,4 +200,6 @@ async function handleLogin(event) {
   }
 }
 
-loginForm?.addEventListener('submit', handleLogin);
+if (loginForm) {
+  loginForm.addEventListener('submit', handleLogin);
+}

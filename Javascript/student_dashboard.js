@@ -1,17 +1,27 @@
 import {
   collection,
-  getDocs
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
+const API_BASE = 'http://127.0.0.1:8000';
 const GENERIC_SESSION_KEY = 'recogniseMeSession';
 const ROLE_SESSIONS_KEY = 'recogniseMeSessionsByRole';
 
 const STUDENT_COLLECTION_CANDIDATES = ['Student', 'student'];
 const ENROLLMENT_COLLECTION_CANDIDATES = ['Enrollment', 'enrollment'];
 const COURSE_COLLECTION_CANDIDATES = ['Courses', 'Course', 'course', 'courses'];
-const ATTENDANCE_SESSION_COLLECTION_CANDIDATES = ['Attendance_Session', 'Attendance_session', 'AttendanceSession', 'sessions'];
-const ATTENDANCE_RECORD_COLLECTION_CANDIDATES = ['Attendance_Record', 'Attendance_record', 'AttendanceRecord', 'reports'];
+const ACTIVE_SESSION_COLLECTION = 'sessions';
+const ATTENDANCE_COLLECTION = 'attendance';
+const ATTENDANCE_SESSION_COLLECTION_CANDIDATES = ['sessions', 'Attendance_Session', 'Attendance_session', 'AttendanceSession'];
+const ATTENDANCE_RECORD_COLLECTION_CANDIDATES = ['attendance', 'Attendance_Record', 'Attendance_record', 'AttendanceRecord', 'reports'];
 
 const studentNameEl = document.getElementById('studentName');
 const studentMajorEl = document.getElementById('studentMajor');
@@ -22,14 +32,28 @@ const completedSessionsEl = document.getElementById('completedSessions');
 const activeSessionsEl = document.getElementById('activeSessions');
 const downloadReportBtn = document.getElementById('downloadReportBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const attendanceModal = document.getElementById('attendanceModal');
+const attendanceVideo = document.getElementById('attendanceVideo');
+const attendanceCanvas = document.getElementById('attendanceCanvas');
+const faceOverlay = document.getElementById('faceOverlay');
+const scanFaceBtn = document.getElementById('scanFaceBtn');
+const closeScannerBtn = document.getElementById('closeScannerBtn');
+const scanStatusEl = document.getElementById('scanStatus');
+const scannerTitleEl = document.getElementById('scannerTitle');
+const scannerCountdownEl = document.getElementById('scannerCountdown');
 
 let studentProfile = null;
 let enrollmentRows = [];
 let courseRows = [];
 let sessionRows = [];
 let attendanceRows = [];
+let scannerStream = null;
+let selectedSession = null;
+let countdownTimer = null;
+let activeSessionUnsubscribe = null;
 
 function normalizeText(value) {
+  if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
   return String(value || '').trim();
 }
 
@@ -83,7 +107,14 @@ function readSession() {
 }
 
 function clearStudentSession() {
-  localStorage.removeItem(GENERIC_SESSION_KEY);
+  try {
+    const genericSession = JSON.parse(localStorage.getItem(GENERIC_SESSION_KEY) || 'null');
+    if (!genericSession || genericSession.role === 'student') {
+      localStorage.removeItem(GENERIC_SESSION_KEY);
+    }
+  } catch {
+    localStorage.removeItem(GENERIC_SESSION_KEY);
+  }
 
   try {
     const sessionsByRole = JSON.parse(localStorage.getItem(ROLE_SESSIONS_KEY) || '{}');
@@ -165,6 +196,7 @@ function normalizeAttendanceSession(snapshot) {
   const data = snapshot.data() || {};
   return {
     docId: snapshot.id,
+    collectionName: snapshot.ref?.parent?.id || '',
     sessionId: getFieldValue(data, ['sessionId', 'session_id']) || snapshot.id,
     courseId: getFieldValue(data, ['courseId', 'course_id']),
     courseName: getFieldValue(data, ['courseName', 'course_name']),
@@ -175,7 +207,7 @@ function normalizeAttendanceSession(snapshot) {
     sessionDate: getFieldValue(data, ['sessionDate', 'session_date', 'date']),
     startTime: getFieldValue(data, ['startTime', 'start_time']),
     endTime: getFieldValue(data, ['endTime', 'end_time']),
-    sessionStatus: getFieldValue(data, ['sessionStatus', 'session_status', 'status']) || 'Scheduled'
+    sessionStatus: getFieldValue(data, ['status', 'sessionStatus', 'session_status']) || 'Scheduled'
   };
 }
 
@@ -183,12 +215,14 @@ function normalizeAttendanceRecord(snapshot) {
   const data = snapshot.data() || {};
   return {
     docId: snapshot.id,
+    collectionName: snapshot.ref?.parent?.id || '',
     recordId: getFieldValue(data, ['recordId', 'record_id']) || snapshot.id,
     sessionId: getFieldValue(data, ['sessionId', 'session_id']),
     studentId: getFieldValue(data, ['studentId', 'student_id']),
+    studentName: getFieldValue(data, ['studentName', 'student_name', 'fullName', 'full_name', 'name']),
     courseId: getFieldValue(data, ['courseId', 'course_id']),
     courseName: getFieldValue(data, ['courseName', 'course_name']),
-    markedAt: getFieldValue(data, ['markedAt', 'marked_at', 'timeIn']),
+    markedAt: getFieldValue(data, ['timestamp', 'markedAt', 'marked_at', 'timeIn']),
     attendanceStatus: getFieldValue(data, ['attendanceStatus', 'attendance_status', 'status']) || 'Present',
     attendanceResult: getFieldValue(data, ['attendanceResult', 'attendance_result', 'verification']) || 'Verified',
     confidence: getFieldValue(data, ['confidence'])
@@ -198,8 +232,16 @@ function normalizeAttendanceRecord(snapshot) {
 function parseDateTime(sessionDate, sessionTime) {
   const date = normalizeText(sessionDate);
   const time = normalizeText(sessionTime);
+  if (time && (time.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(time))) {
+    const direct = new Date(time);
+    if (!Number.isNaN(direct.getTime())) return direct;
+  }
+
   if (!date) return null;
-  const composite = `${date}T${time || '00:00'}:00`;
+
+  let timePart = time || '00:00';
+  if (/^\d{2}:\d{2}$/.test(timePart)) timePart += ':00';
+  const composite = `${date}T${timePart}`;
   const parsed = new Date(composite);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -217,10 +259,29 @@ function getDisplaySessionStatus(session) {
   const stored = normalizeText(session.sessionStatus).toLowerCase();
 
   if (stored === 'cancelled') return 'Cancelled';
-  if (!start || !end) return normalizeText(session.sessionStatus) || 'Scheduled';
+  if (stored === 'ended') return 'Closed';
+  if (!start || !end) return stored === 'active' ? 'Open' : normalizeText(session.sessionStatus) || 'Scheduled';
   if (now < start) return 'Scheduled';
   if (now >= start && now <= end) return 'Open';
   return 'Closed';
+}
+
+function isSessionJoinable(session) {
+  const start = parseDateTime(session.sessionDate, session.startTime);
+  const end = parseDateTime(session.sessionDate, session.endTime);
+  const now = new Date();
+  return normalizeText(session.sessionStatus).toLowerCase() === 'active'
+    && Boolean(start)
+    && Boolean(end)
+    && now >= start
+    && now <= end;
+}
+
+function formatSessionTime(session) {
+  const start = parseDateTime(session.sessionDate, session.startTime);
+  const end = parseDateTime(session.sessionDate, session.endTime);
+  if (!start || !end) return `${normalizeText(session.startTime) || '--'} to ${normalizeText(session.endTime) || '--'}`;
+  return `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function getCourseTitle(course) {
@@ -287,7 +348,7 @@ function buildSessionCard(course) {
     .filter((session) => normalizeId(session.courseId) === normalizeId(course.courseId) || normalizeId(session.courseId) === normalizeId(course.docId))
     .sort((left, right) => parseDateTime(left.sessionDate, left.startTime) - parseDateTime(right.sessionDate, right.startTime));
 
-  const liveSession = relatedSessions.find((session) => getDisplaySessionStatus(session) === 'Open');
+  const liveSession = relatedSessions.find(isSessionJoinable);
   const nextSession = relatedSessions.find((session) => getDisplaySessionStatus(session) === 'Scheduled');
   const lastSession = relatedSessions.length ? relatedSessions[relatedSessions.length - 1] : null;
   const courseRecords = attendanceRows.filter((record) => normalizeId(record.courseId) === normalizeId(course.courseId) || normalizeId(record.courseId) === normalizeId(course.docId));
@@ -304,7 +365,7 @@ function buildSessionCard(course) {
 
   if (liveSession) {
     const existingRecord = getStudentRecordForSession(liveSession.sessionId);
-    sessionMeta = `Live now in ${normalizeText(liveSession.classroom) || 'the assigned room'} from ${normalizeText(liveSession.startTime)} to ${normalizeText(liveSession.endTime)}.`;
+    sessionMeta = `Live now in ${normalizeText(liveSession.classroom) || 'the assigned room'} from ${formatSessionTime(liveSession)}.`;
 
     if (existingRecord) {
       const recordStatus = normalizeText(existingRecord.attendanceStatus) || 'Present';
@@ -315,22 +376,24 @@ function buildSessionCard(course) {
     } else if (!studentProfile?.faceRegistered) {
       badgeClass = 'badge-live';
       badgeLabel = 'Live Now';
-      buttonLabel = 'Live Session Available';
+      buttonLabel = 'Register Face First';
     } else {
       badgeClass = 'badge-live';
       badgeLabel = 'Live Now';
-      buttonLabel = 'Live Session Available';
+      buttonLabel = 'Join Session';
+      buttonDisabled = false;
+      buttonClass = 'primary';
     }
   } else if (nextSession) {
     badgeClass = 'badge-normal';
     badgeLabel = 'Upcoming';
     buttonLabel = 'Starts Soon';
-    sessionMeta = `Next session is on ${normalizeText(nextSession.sessionDate)} from ${normalizeText(nextSession.startTime)} to ${normalizeText(nextSession.endTime)}.`;
+    sessionMeta = `Next session is on ${normalizeText(nextSession.sessionDate)} from ${formatSessionTime(nextSession)}.`;
   } else if (lastSession) {
     badgeClass = 'badge-normal';
     badgeLabel = 'Closed';
     buttonLabel = 'Await Next Session';
-    sessionMeta = `Last session was on ${normalizeText(lastSession.sessionDate)} from ${normalizeText(lastSession.startTime)} to ${normalizeText(lastSession.endTime)}.`;
+    sessionMeta = `Last session was on ${normalizeText(lastSession.sessionDate)} from ${formatSessionTime(lastSession)}.`;
   }
 
   return `
@@ -373,7 +436,7 @@ function renderDashboard() {
   }
 
   const liveSessions = sessionRows.filter((session) => {
-    if (getDisplaySessionStatus(session) !== 'Open') return false;
+    if (!isSessionJoinable(session)) return false;
     const enrolled = enrolledCourses.some((course) => normalizeId(course.courseId) === normalizeId(session.courseId) || normalizeId(course.docId) === normalizeId(session.courseId));
     if (!enrolled) return false;
     return !getStudentRecordForSession(session.sessionId);
@@ -391,6 +454,288 @@ function renderDashboard() {
   if (averageAttendanceEl) averageAttendanceEl.textContent = `${averageRate}%`;
   if (completedSessionsEl) completedSessionsEl.textContent = `${attendedSessions}/${completedSessions.length}`;
   if (activeSessionsEl) activeSessionsEl.textContent = String(liveSessions.length);
+}
+
+function safeDocToken(value) {
+  return normalizeText(value).replace(/[^A-Za-z0-9_.-]+/g, '_') || 'unknown';
+}
+
+function findSessionById(sessionId) {
+  return sessionRows.find((session) => normalizeId(session.sessionId) === normalizeId(sessionId));
+}
+
+function mergeSessionsById(sessions) {
+  const merged = new Map();
+  sessions.forEach((session) => {
+    const key = normalizeId(session.sessionId || session.docId);
+    if (key) merged.set(key, session);
+  });
+  return Array.from(merged.values());
+}
+
+function startActiveSessionListener() {
+  if (activeSessionUnsubscribe) activeSessionUnsubscribe();
+
+  const activeQuery = query(collection(db, ACTIVE_SESSION_COLLECTION), where('status', '==', 'active'));
+  activeSessionUnsubscribe = onSnapshot(activeQuery, (snapshot) => {
+    const activeSessions = snapshot.docs.map(normalizeAttendanceSession);
+    const legacySessions = sessionRows.filter((session) => session.collectionName !== ACTIVE_SESSION_COLLECTION);
+    sessionRows = mergeSessionsById([...legacySessions, ...activeSessions]);
+    renderDashboard();
+  }, (error) => {
+    const code = String(error?.code || '');
+    setPageStatus(
+      code.includes('permission-denied')
+        ? 'Firestore rules are blocking real-time reads from the sessions collection.'
+        : (error?.message || 'Could not watch active sessions.'),
+      'error'
+    );
+  });
+}
+
+function clearFaceOverlay() {
+  if (!faceOverlay) return;
+  const context = faceOverlay.getContext('2d');
+  context.clearRect(0, 0, faceOverlay.width, faceOverlay.height);
+}
+
+function drawFaceBox(box) {
+  if (!faceOverlay || !attendanceVideo || !box) return;
+  const width = attendanceVideo.videoWidth || 640;
+  const height = attendanceVideo.videoHeight || 480;
+  faceOverlay.width = width;
+  faceOverlay.height = height;
+
+  const context = faceOverlay.getContext('2d');
+  context.clearRect(0, 0, width, height);
+  context.strokeStyle = '#16a34a';
+  context.lineWidth = 5;
+  context.strokeRect(Number(box.x) || 0, Number(box.y) || 0, Number(box.w) || 0, Number(box.h) || 0);
+}
+
+function setScanStatus(message) {
+  if (scanStatusEl) scanStatusEl.textContent = message;
+}
+
+function updateScannerCountdown() {
+  if (!selectedSession || !scannerCountdownEl) return;
+  const end = parseDateTime(selectedSession.sessionDate, selectedSession.endTime);
+  if (!end) {
+    scannerCountdownEl.textContent = 'Session time unavailable';
+    return;
+  }
+
+  const remainingMs = end.getTime() - Date.now();
+  if (remainingMs <= 0) {
+    scannerCountdownEl.textContent = 'Session ended';
+    if (scanFaceBtn) scanFaceBtn.disabled = true;
+    closeAttendanceScanner();
+    renderDashboard();
+    return;
+  }
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  scannerCountdownEl.textContent = `${minutes}:${seconds} remaining`;
+}
+
+async function startAttendanceCamera() {
+  if (scannerStream) return scannerStream;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('This browser does not support camera access.');
+  }
+
+  scannerStream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 640, height: 480, facingMode: 'user' },
+    audio: false
+  });
+
+  attendanceVideo.srcObject = scannerStream;
+  if (attendanceVideo.readyState < 2) {
+    await new Promise((resolve) => {
+      attendanceVideo.onloadedmetadata = () => resolve();
+    });
+  }
+
+  await attendanceVideo.play();
+  clearFaceOverlay();
+  return scannerStream;
+}
+
+function stopAttendanceCamera() {
+  if (scannerStream) {
+    scannerStream.getTracks().forEach((track) => track.stop());
+  }
+
+  scannerStream = null;
+  if (attendanceVideo) attendanceVideo.srcObject = null;
+  clearFaceOverlay();
+}
+
+function closeAttendanceScanner() {
+  stopAttendanceCamera();
+  selectedSession = null;
+  if (countdownTimer) window.clearInterval(countdownTimer);
+  countdownTimer = null;
+  if (attendanceModal) attendanceModal.hidden = true;
+  if (scanFaceBtn) scanFaceBtn.disabled = false;
+}
+
+async function openAttendanceScanner(session) {
+  if (!studentProfile?.faceRegistered) {
+    setPageStatus('Your face is not registered yet. Complete face registration before joining a session.', 'warning');
+    return;
+  }
+
+  if (!isSessionJoinable(session)) {
+    setPageStatus('This session is not currently active.', 'warning');
+    return;
+  }
+
+  if (getStudentRecordForSession(session.sessionId)) {
+    setPageStatus('Your attendance is already recorded for this session.', 'warning');
+    return;
+  }
+
+  selectedSession = session;
+  if (scannerTitleEl) scannerTitleEl.textContent = `Join ${normalizeText(session.courseName) || normalizeText(session.courseId) || 'Session'}`;
+  if (attendanceModal) attendanceModal.hidden = false;
+  if (scanFaceBtn) scanFaceBtn.disabled = true;
+  setScanStatus('Opening camera...');
+  updateScannerCountdown();
+  countdownTimer = window.setInterval(updateScannerCountdown, 1000);
+
+  try {
+    await startAttendanceCamera();
+    setScanStatus('Camera ready. Scan your face when you are centered in the frame.');
+    if (scanFaceBtn) scanFaceBtn.disabled = false;
+  } catch (error) {
+    setScanStatus(error?.message || 'Camera access was denied.');
+    if (scanFaceBtn) scanFaceBtn.disabled = true;
+  }
+}
+
+function captureAttendanceFrame() {
+  if (!scannerStream) throw new Error('Open the camera first.');
+  const width = attendanceVideo.videoWidth || 640;
+  const height = attendanceVideo.videoHeight || 480;
+  const context = attendanceCanvas.getContext('2d');
+
+  attendanceCanvas.width = width;
+  attendanceCanvas.height = height;
+  context.drawImage(attendanceVideo, 0, 0, width, height);
+
+  return attendanceCanvas.toDataURL('image/jpeg', 0.92);
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({ ok: false, match: false, message: 'Invalid server response.' }));
+  if (!response.ok) throw new Error(data.message || 'Request failed.');
+  return data;
+}
+
+async function recordAttendance(session, verification) {
+  const attendanceDocId = `${safeDocToken(session.sessionId)}_${safeDocToken(studentProfile.studentId)}`;
+  const attendanceRef = doc(db, ATTENDANCE_COLLECTION, attendanceDocId);
+  const existing = await getDoc(attendanceRef);
+
+  if (existing.exists() || getStudentRecordForSession(session.sessionId)) {
+    setPageStatus('Your attendance is already recorded for this session.', 'warning');
+    return false;
+  }
+
+  const markedAt = new Date().toISOString();
+  const record = {
+    sessionId: session.sessionId,
+    session_id: session.sessionId,
+    studentId: studentProfile.studentId,
+    student_id: studentProfile.studentId,
+    studentName: studentProfile.fullName,
+    student_name: studentProfile.fullName,
+    courseId: session.courseId,
+    course_id: session.courseId,
+    courseName: session.courseName,
+    course_name: session.courseName,
+    instructorId: session.instructorId,
+    instructor_id: session.instructorId,
+    timestamp: markedAt,
+    markedAt,
+    marked_at: markedAt,
+    status: 'present',
+    attendanceStatus: 'present',
+    attendance_status: 'present',
+    attendanceResult: 'Verified',
+    attendance_result: 'Verified',
+    confidence: verification?.confidence ?? '',
+    createdAt: serverTimestamp()
+  };
+
+  await setDoc(attendanceRef, record);
+  attendanceRows.push({
+    docId: attendanceDocId,
+    collectionName: ATTENDANCE_COLLECTION,
+    recordId: attendanceDocId,
+    sessionId: session.sessionId,
+    studentId: studentProfile.studentId,
+    studentName: studentProfile.fullName,
+    courseId: session.courseId,
+    courseName: session.courseName,
+    markedAt,
+    attendanceStatus: 'present',
+    attendanceResult: 'Verified',
+    confidence: verification?.confidence ?? ''
+  });
+  renderDashboard();
+  return true;
+}
+
+async function handleScanFace() {
+  if (!selectedSession || scanFaceBtn?.disabled) return;
+
+  if (!isSessionJoinable(selectedSession)) {
+    setScanStatus('This session is no longer active.');
+    closeAttendanceScanner();
+    renderDashboard();
+    return;
+  }
+
+  if (getStudentRecordForSession(selectedSession.sessionId)) {
+    setScanStatus('Attendance was already recorded for this session.');
+    closeAttendanceScanner();
+    return;
+  }
+
+  scanFaceBtn.disabled = true;
+  setScanStatus('Scanning face...');
+
+  try {
+    const imageData = captureAttendanceFrame();
+    const result = await postJson('/verify-face', {
+      studentId: studentProfile.studentId,
+      imageData
+    });
+
+    drawFaceBox(result.box);
+
+    if (!result.match) {
+      throw new Error(result.message || 'Face was detected, but it did not match this student.');
+    }
+
+    const saved = await recordAttendance(selectedSession, result);
+    if (saved) {
+      setPageStatus(`Attendance recorded successfully for ${studentProfile.fullName}.`, 'success');
+    }
+    closeAttendanceScanner();
+  } catch (error) {
+    setScanStatus(error?.message || 'Face verification failed.');
+    scanFaceBtn.disabled = false;
+  }
 }
 
 async function loadDashboardData() {
@@ -438,6 +783,7 @@ async function loadDashboardData() {
   });
 
   renderDashboard();
+  startActiveSessionListener();
   setPageStatus('Signed in successfully.', 'success');
   return true;
 }
@@ -474,11 +820,38 @@ function downloadAttendanceReport() {
 }
 
 logoutBtn?.addEventListener('click', () => {
+  closeAttendanceScanner();
+  if (activeSessionUnsubscribe) activeSessionUnsubscribe();
   clearStudentSession();
   window.location.href = './Admin Pages/login.html';
 });
 
 downloadReportBtn?.addEventListener('click', downloadAttendanceReport);
+
+courseGridEl?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-session-id]');
+  if (!button || button.disabled) return;
+
+  const session = findSessionById(button.dataset.sessionId);
+  if (!session) {
+    setPageStatus('This session could not be found. Refresh the page and try again.', 'error');
+    return;
+  }
+
+  openAttendanceScanner(session);
+});
+
+scanFaceBtn?.addEventListener('click', handleScanFace);
+closeScannerBtn?.addEventListener('click', closeAttendanceScanner);
+
+window.addEventListener('beforeunload', () => {
+  closeAttendanceScanner();
+  if (activeSessionUnsubscribe) activeSessionUnsubscribe();
+});
+
+window.setInterval(() => {
+  if (studentProfile) renderDashboard();
+}, 30000);
 
 try {
   await loadDashboardData();
